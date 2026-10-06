@@ -1,0 +1,14 @@
+---
+source: src/ui/mod.rs
+expression: "draw(&app, 80, 10).backend()"
+---
+"                                                                                "
+"                                                                                "
+"        ╭ results ─────────────────────────────────────────────────────╮        "
+"        │ls -l | wc -l                                                 │        "
+"        │65 wpm   100% acc                                             │        "
+"        │Explain this                                                  │        "
+"        │no missed symbols                                             │        "
+"        ╰──────────────────────────────────────────────────────────────╯        "
+"        enter next · esc quit                                                   "
+"                                                                                "

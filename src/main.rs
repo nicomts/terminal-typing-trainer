@@ -2,6 +2,7 @@ mod app;
 mod corpus;
 mod event;
 mod session;
+mod stats;
 mod theme;
 mod ui;
 

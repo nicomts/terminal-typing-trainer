@@ -8,10 +8,9 @@ use rand::RngExt;
 use rand::rngs::StdRng;
 use serde::Deserialize;
 
-/// Longest allowed `explain`. It is shown on the hint row after a round,
-/// next to " · enter next · esc quit" (24 chars), and must fit in the
-/// narrowest panel (60 columns).
-pub const MAX_EXPLAIN_CHARS: usize = 36;
+/// Longest allowed `explain`. It gets one row of the Results panel, so it
+/// must fit in the narrowest panel: 60 columns minus the 2 side borders.
+pub const MAX_EXPLAIN_CHARS: usize = 58;
 
 /// Every corpus file, embedded at compile time. The name is only used in
 /// error messages.

@@ -2,6 +2,8 @@
 //!
 //! `update` never touches the terminal; `ui::render` only reads this state.
 
+use std::time::Instant;
+
 use color_eyre::Result;
 use color_eyre::eyre::bail;
 use rand::rngs::StdRng;
@@ -10,8 +12,17 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crate::corpus::{self, Command};
 use crate::event::Event;
 use crate::session::Session;
+use crate::stats::{self, RoundStats};
+
+/// Which screen is showing. A variant can carry data: the Results screen
+/// owns the stats of the round it shows, computed once when the round ended.
+pub enum Screen {
+    Typing,
+    Results(RoundStats),
+}
 
 pub struct App {
+    pub screen: Screen,
     pub session: Session,
     pub should_quit: bool,
     commands: Vec<Command>,
@@ -30,6 +41,7 @@ impl App {
         let current = corpus::pick(commands.len(), &mut rng);
         let session = Session::new(&commands[current].text);
         Ok(App {
+            screen: Screen::Typing,
             session,
             should_quit: false,
             commands,
@@ -38,19 +50,36 @@ impl App {
         })
     }
 
-    /// The command being typed.
+    /// The command being typed, or just typed on the Results screen.
     pub fn command(&self) -> &Command {
         &self.commands[self.current]
     }
 
     pub fn update(&mut self, event: Event) {
         match event {
-            Event::Key(key) => self.handle_key(key),
+            Event::Key { key, at } => self.handle_key(key, at),
             Event::Tick => {}
         }
     }
 
-    fn handle_key(&mut self, key: KeyEvent) {
+    fn handle_key(&mut self, key: KeyEvent, at: Instant) {
+        if key.code == KeyCode::Esc {
+            self.should_quit = true;
+            return;
+        }
+        // `_` matches the stats without borrowing them, so `self` is free
+        // to be changed inside the arms.
+        match self.screen {
+            Screen::Typing => self.handle_typing_key(key, at),
+            Screen::Results(_) => {
+                if key.code == KeyCode::Enter {
+                    self.next_round();
+                }
+            }
+        }
+    }
+
+    fn handle_typing_key(&mut self, key: KeyEvent, at: Instant) {
         // Ctrl+C or Alt+x are shortcuts, not text. Shift is fine:
         // 'A' and '|' arrive as plain characters with the SHIFT flag.
         let is_shortcut = key
@@ -58,9 +87,12 @@ impl App {
             .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT);
 
         match key.code {
-            KeyCode::Esc => self.should_quit = true,
-            KeyCode::Enter if self.session.is_finished() => self.next_round(),
-            KeyCode::Char(c) if !is_shortcut => self.session.type_char(c),
+            KeyCode::Char(c) if !is_shortcut => {
+                self.session.type_char(c, at);
+                if self.session.is_finished() {
+                    self.screen = Screen::Results(stats::round_stats(&self.session));
+                }
+            }
             KeyCode::Backspace => self.session.backspace(),
             _ => {}
         }
@@ -70,6 +102,7 @@ impl App {
     fn next_round(&mut self) {
         self.current = corpus::pick_next(self.commands.len(), self.current, &mut self.rng);
         self.session = Session::new(&self.commands[self.current].text);
+        self.screen = Screen::Typing;
     }
 }
 
@@ -92,15 +125,27 @@ pub fn test_app(texts: &[&str]) -> App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::event::press_at;
 
     fn press(code: KeyCode) -> Event {
-        Event::Key(KeyEvent::new(code, KeyModifiers::NONE))
+        press_at(code, Instant::now())
+    }
+
+    fn press_with(code: KeyCode, modifiers: KeyModifiers) -> Event {
+        Event::Key {
+            key: KeyEvent::new(code, modifiers),
+            at: Instant::now(),
+        }
     }
 
     fn type_text(app: &mut App, text: &str) {
         for c in text.chars() {
             app.update(press(KeyCode::Char(c)));
         }
+    }
+
+    fn is_results(app: &App) -> bool {
+        matches!(app.screen, Screen::Results(_))
     }
 
     #[test]
@@ -117,6 +162,14 @@ mod tests {
     }
 
     #[test]
+    fn esc_quits_from_results() {
+        let mut app = test_app(&["ls"]);
+        type_text(&mut app, "ls");
+        app.update(press(KeyCode::Esc));
+        assert!(app.should_quit);
+    }
+
+    #[test]
     fn chars_are_typed() {
         let mut app = test_app(&["ls"]);
         app.update(press(KeyCode::Char('l')));
@@ -126,20 +179,14 @@ mod tests {
     #[test]
     fn ctrl_c_does_not_type_c() {
         let mut app = test_app(&["ls"]);
-        app.update(Event::Key(KeyEvent::new(
-            KeyCode::Char('c'),
-            KeyModifiers::CONTROL,
-        )));
+        app.update(press_with(KeyCode::Char('c'), KeyModifiers::CONTROL));
         assert!(app.session.typed().is_empty());
     }
 
     #[test]
     fn shifted_symbols_are_typed() {
         let mut app = test_app(&["ls"]);
-        app.update(Event::Key(KeyEvent::new(
-            KeyCode::Char('|'),
-            KeyModifiers::SHIFT,
-        )));
+        app.update(press_with(KeyCode::Char('|'), KeyModifiers::SHIFT));
         assert_eq!(app.session.typed(), &['|']);
     }
 
@@ -152,7 +199,16 @@ mod tests {
     }
 
     #[test]
-    fn enter_does_nothing_before_the_round_is_finished() {
+    fn finishing_the_command_shows_results() {
+        let mut app = test_app(&["ls"]);
+        type_text(&mut app, "l");
+        assert!(!is_results(&app));
+        type_text(&mut app, "s");
+        assert!(is_results(&app));
+    }
+
+    #[test]
+    fn enter_does_nothing_while_typing() {
         let mut app = test_app(&["ls", "pwd"]);
         let before = app.command().text.clone();
         app.update(press(KeyCode::Char('x')));
@@ -162,12 +218,27 @@ mod tests {
     }
 
     #[test]
-    fn enter_after_finishing_starts_a_different_command() {
+    fn typing_on_results_does_nothing() {
         let mut app = test_app(&["ls", "pwd"]);
+        let first = app.command().text.clone();
+        type_text(&mut app, &first);
+        type_text(&mut app, "abc");
+        app.update(press(KeyCode::Backspace));
+
+        assert!(is_results(&app));
+        assert_eq!(app.command().text, first);
+        assert!(app.session.is_finished());
+    }
+
+    #[test]
+    fn enter_on_results_starts_a_different_command() {
+        let mut app = test_app(&["ls", "pwd"]);
+        // Cloned so the borrow of `app` ends here; typing needs `&mut app`.
         let first = app.command().text.clone();
         type_text(&mut app, &first);
         app.update(press(KeyCode::Enter));
 
+        assert!(!is_results(&app));
         assert_ne!(app.command().text, first);
         assert!(app.session.typed().is_empty());
         let target: String = app.session.target().iter().collect();
