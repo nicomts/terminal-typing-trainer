@@ -41,7 +41,14 @@ pub fn render(frame: &mut Frame, app: &App) {
         Screen::Results(stats) => {
             let height = results::height(&app.session, width);
             let area = centered_area(frame.area(), width, height);
-            results::render(frame, area, &app.session, stats, &app.command().explain);
+            results::render(
+                frame,
+                area,
+                &app.session,
+                stats,
+                &app.profile,
+                &app.command().explain,
+            );
         }
     }
 }

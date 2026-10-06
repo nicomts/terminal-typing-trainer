@@ -2,11 +2,15 @@
 //!
 //! The commands are display text only. Nothing here ever runs them.
 
+use std::collections::BTreeSet;
+
 use color_eyre::Result;
 use color_eyre::eyre::{WrapErr, bail};
 use rand::RngExt;
 use rand::rngs::StdRng;
 use serde::Deserialize;
+
+use crate::stats::{self, Profile};
 
 /// Longest allowed `explain`. It gets one row of the Results panel, so it
 /// must fit in the narrowest panel: 60 columns minus the 2 side borders.
@@ -76,20 +80,65 @@ fn check(command: &Command) -> Result<()> {
     Ok(())
 }
 
-/// A random index into a list of `len` commands. `len` must be at least 1.
-pub fn pick(len: usize, rng: &mut StdRng) -> usize {
-    rng.random_range(0..len)
+/// How likely `command` is to be picked: 1, plus the weakness of each
+/// distinct symbol in it. The base 1 means every command can still come up;
+/// commands full of symbols the user misses come up more often.
+pub fn command_weight(command: &Command, profile: &Profile) -> f64 {
+    // A set, so `{} {}` counts '{' once rather than twice.
+    let mut symbols = BTreeSet::new();
+    for c in command.text.chars() {
+        if stats::is_symbol(c) {
+            symbols.insert(c);
+        }
+    }
+
+    let mut weight = 1.0;
+    for symbol in symbols {
+        weight += profile.weakness(symbol);
+    }
+    weight
 }
 
-/// A random index other than `current`, so the same command never comes
-/// twice in a row. With a single command there is no choice: returns 0.
-pub fn pick_next(len: usize, current: usize, rng: &mut StdRng) -> usize {
-    if len < 2 {
+/// Picks a command index at random, favouring commands with weak symbols.
+/// `current`, if given, is never picked, so a command never comes twice in
+/// a row. With a single command there is no choice: returns 0.
+pub fn pick_weighted(
+    commands: &[Command],
+    profile: &Profile,
+    current: Option<usize>,
+    rng: &mut StdRng,
+) -> usize {
+    if commands.len() < 2 {
         return 0;
     }
-    // Draw from the other `len - 1` positions, then step over `current`.
-    let index = rng.random_range(0..len - 1);
-    if index >= current { index + 1 } else { index }
+
+    let mut weights = Vec::with_capacity(commands.len());
+    for (i, command) in commands.iter().enumerate() {
+        if Some(i) == current {
+            weights.push(0.0);
+        } else {
+            weights.push(command_weight(command, profile));
+        }
+    }
+
+    // Think of the weights as lengths laid end to end: draw a point on the
+    // whole line and find which command's stretch it lands in. Every weight
+    // is at least 1 except `current`, so `total` is at least 1.
+    let total: f64 = weights.iter().sum();
+    let mut point = rng.random_range(0.0..total);
+    let mut last_candidate = 0;
+    for (i, &weight) in weights.iter().enumerate() {
+        if Some(i) == current {
+            continue;
+        }
+        if point < weight {
+            return i;
+        }
+        point -= weight;
+        last_candidate = i;
+    }
+    // Only reached if float rounding left `point` a hair past the end.
+    last_candidate
 }
 
 #[cfg(test)]
@@ -150,12 +199,37 @@ mod tests {
         assert!(error.to_string().contains("explain"));
     }
 
+    fn commands(texts: &[&str]) -> Vec<Command> {
+        let mut list = Vec::new();
+        for text in texts {
+            list.push(command(text, "Explain"));
+        }
+        list
+    }
+
     #[test]
-    fn pick_next_never_repeats() {
+    fn command_without_symbols_has_base_weight() {
+        assert_eq!(
+            command_weight(&command("ls", "List"), &Profile::default()),
+            1.0
+        );
+    }
+
+    #[test]
+    fn each_distinct_symbol_adds_its_weakness() {
+        // '{' and '}' are new symbols (0.5 each); the repeated pair counts once.
+        let weight = command_weight(&command("{} {}", "Braces"), &Profile::default());
+        assert_eq!(weight, 2.0);
+    }
+
+    #[test]
+    fn pick_weighted_never_repeats() {
+        let list = commands(&["ls", "pwd", "a | b"]);
+        let profile = Profile::default();
         let mut rng = StdRng::seed_from_u64(1);
         let mut current = 0;
         for _ in 0..200 {
-            let next = pick_next(3, current, &mut rng);
+            let next = pick_weighted(&list, &profile, Some(current), &mut rng);
             assert_ne!(next, current);
             assert!(next < 3);
             current = next;
@@ -163,18 +237,45 @@ mod tests {
     }
 
     #[test]
-    fn pick_next_reaches_every_other_command() {
+    fn pick_weighted_reaches_every_other_command() {
+        let list = commands(&["ls", "pwd", "a | b", "a & b"]);
         let mut rng = StdRng::seed_from_u64(1);
         let mut seen = [false; 4];
         for _ in 0..200 {
-            seen[pick_next(4, 0, &mut rng)] = true;
+            seen[pick_weighted(&list, &Profile::default(), Some(0), &mut rng)] = true;
         }
         assert_eq!(seen, [false, true, true, true]);
     }
 
     #[test]
-    fn pick_next_with_one_command_returns_it() {
+    fn weak_symbols_are_picked_more_often() {
+        let list = commands(&["ls", "a | b"]);
+        let mut profile = Profile::default();
+        profile.symbols.insert(
+            '|',
+            crate::stats::SymbolRecord {
+                seen: 10,
+                missed: 9,
+            },
+        );
+        // Weights: "ls" 1.0, "a | b" 1 + 10/12 = 1.83, so about 65% of picks.
         let mut rng = StdRng::seed_from_u64(1);
-        assert_eq!(pick_next(1, 0, &mut rng), 0);
+        let mut pipes = 0;
+        for _ in 0..2000 {
+            if pick_weighted(&list, &profile, None, &mut rng) == 1 {
+                pipes += 1;
+            }
+        }
+        assert!((1200..1400).contains(&pipes), "picked {pipes} of 2000");
+    }
+
+    #[test]
+    fn pick_weighted_with_one_command_returns_it() {
+        let mut rng = StdRng::seed_from_u64(1);
+        let list = commands(&["ls"]);
+        assert_eq!(
+            pick_weighted(&list, &Profile::default(), Some(0), &mut rng),
+            0
+        );
     }
 }

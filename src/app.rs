@@ -12,7 +12,7 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crate::corpus::{self, Command};
 use crate::event::Event;
 use crate::session::Session;
-use crate::stats::{self, RoundStats};
+use crate::stats::{self, Profile, RoundStats};
 
 /// Which screen is showing. A variant can carry data: the Results screen
 /// owns the stats of the round it shows, computed once when the round ended.
@@ -25,6 +25,11 @@ pub struct App {
     pub screen: Screen,
     pub session: Session,
     pub should_quit: bool,
+    /// Totals over every round, loaded at start and saved after each round.
+    pub profile: Profile,
+    /// Set when `profile` has changed. `update` never writes files: the main
+    /// loop sees this flag, saves, and clears it.
+    pub profile_changed: bool,
     commands: Vec<Command>,
     /// Index into `commands` of the command being typed. Always valid,
     /// because `commands` is never empty and never changes.
@@ -34,16 +39,18 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(commands: Vec<Command>, mut rng: StdRng) -> Result<Self> {
+    pub fn new(commands: Vec<Command>, profile: Profile, mut rng: StdRng) -> Result<Self> {
         if commands.is_empty() {
             bail!("cannot start without any commands");
         }
-        let current = corpus::pick(commands.len(), &mut rng);
+        let current = corpus::pick_weighted(&commands, &profile, None, &mut rng);
         let session = Session::new(&commands[current].text);
         Ok(App {
             screen: Screen::Typing,
             session,
             should_quit: false,
+            profile,
+            profile_changed: false,
             commands,
             current,
             rng,
@@ -90,7 +97,10 @@ impl App {
             KeyCode::Char(c) if !is_shortcut => {
                 self.session.type_char(c, at);
                 if self.session.is_finished() {
-                    self.screen = Screen::Results(stats::round_stats(&self.session));
+                    let stats = stats::round_stats(&self.session);
+                    self.profile.record_round(&self.session, &stats);
+                    self.profile_changed = true;
+                    self.screen = Screen::Results(stats);
                 }
             }
             KeyCode::Backspace => self.session.backspace(),
@@ -98,9 +108,16 @@ impl App {
         }
     }
 
-    /// Starts a new round with a different random command.
+    /// Starts a new round with a different command, favouring weak symbols.
     fn next_round(&mut self) {
-        self.current = corpus::pick_next(self.commands.len(), self.current, &mut self.rng);
+        // Borrows three different fields at once (two shared, one mutable);
+        // the borrow checker allows that because they don't overlap.
+        self.current = corpus::pick_weighted(
+            &self.commands,
+            &self.profile,
+            Some(self.current),
+            &mut self.rng,
+        );
         self.session = Session::new(&self.commands[self.current].text);
         self.screen = Screen::Typing;
     }
@@ -119,7 +136,7 @@ pub fn test_app(texts: &[&str]) -> App {
             tags: vec!["test".to_string()],
         })
         .collect();
-    App::new(commands, StdRng::seed_from_u64(7)).unwrap()
+    App::new(commands, Profile::default(), StdRng::seed_from_u64(7)).unwrap()
 }
 
 #[cfg(test)]
@@ -151,7 +168,7 @@ mod tests {
     #[test]
     fn empty_corpus_is_an_error() {
         use rand::SeedableRng;
-        assert!(App::new(Vec::new(), StdRng::seed_from_u64(7)).is_err());
+        assert!(App::new(Vec::new(), Profile::default(), StdRng::seed_from_u64(7)).is_err());
     }
 
     #[test]
@@ -205,6 +222,17 @@ mod tests {
         assert!(!is_results(&app));
         type_text(&mut app, "s");
         assert!(is_results(&app));
+    }
+
+    #[test]
+    fn finishing_a_round_updates_the_profile() {
+        let mut app = test_app(&["a | b"]);
+        assert!(!app.profile_changed);
+        type_text(&mut app, "a x b");
+
+        assert!(app.profile_changed);
+        assert_eq!(app.profile.rounds, 1);
+        assert_eq!(app.profile.symbols[&'|'].missed, 1);
     }
 
     #[test]
