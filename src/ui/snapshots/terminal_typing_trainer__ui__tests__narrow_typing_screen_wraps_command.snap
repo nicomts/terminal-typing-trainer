@@ -1,0 +1,16 @@
+---
+source: src/ui/mod.rs
+expression: "render_typing_screen(40, 12).backend()"
+---
+"                                        "
+"                                        "
+"                                        "
+"                                        "
+"╭ type ────────────────────────────────╮"
+"│find /var/log -name '*.log' -mtime +7 │"
+"│-exec gzip {} \;                      │"
+"╰──────────────────────────────────────╯"
+"esc quit                                "
+"                                        "
+"                                        "
+"                                        "
