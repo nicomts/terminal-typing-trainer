@@ -91,6 +91,16 @@ impl Session {
     pub fn mistakes(&self) -> &[usize] {
         &self.mistakes
     }
+
+    /// One flag per target position: was it ever typed wrong this round?
+    /// Several mistakes at the same position still give a single `true`.
+    pub fn missed_positions(&self) -> Vec<bool> {
+        let mut missed = vec![false; self.target.len()];
+        for &position in &self.mistakes {
+            missed[position] = true;
+        }
+        missed
+    }
 }
 
 #[cfg(test)]

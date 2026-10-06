@@ -3,9 +3,11 @@ mod corpus;
 mod event;
 mod session;
 mod stats;
+mod storage;
 mod theme;
 mod ui;
 
+use std::path::Path;
 use std::time::Duration;
 
 use color_eyre::Result;
@@ -20,22 +22,30 @@ fn main() -> Result<()> {
     // Install color-eyre first: `ratatui::init` then wraps its panic hook,
     // so on a panic the terminal is restored *before* the report is printed.
     color_eyre::install()?;
-    // Load before taking over the terminal, so a corpus error prints normally.
+    // Load before taking over the terminal, so errors print normally.
     let commands = corpus::load()?;
-    let app = App::new(commands, rand::make_rng())?;
+    let stats_file = storage::data_file()?;
+    let profile = storage::load(&stats_file)?;
+    let app = App::new(commands, profile, rand::make_rng())?;
 
     let mut terminal = ratatui::init();
-    let result = run(&mut terminal, app);
+    let result = run(&mut terminal, app, &stats_file);
     // Restore even when `run` returned an error, then hand the error on.
     ratatui::restore();
     result
 }
 
-fn run(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
+fn run(terminal: &mut DefaultTerminal, mut app: App, stats_file: &Path) -> Result<()> {
     while !app.should_quit {
         terminal.draw(|frame| ui::render(frame, &app))?;
         let event = event::next(TICK_RATE)?;
         app.update(event);
+
+        // `update` only flags the change; file I/O happens here, outside it.
+        if app.profile_changed {
+            storage::save(stats_file, &app.profile)?;
+            app.profile_changed = false;
+        }
     }
     Ok(())
 }
