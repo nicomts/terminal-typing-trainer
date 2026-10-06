@@ -19,7 +19,8 @@ pub fn height(session: &Session, width: u16) -> u16 {
     text_rows(session, width) + BORDER_ROWS + HINT_ROWS
 }
 
-pub fn render(frame: &mut Frame, area: Rect, session: &Session) {
+/// `explain` is shown on the hint row once the round is finished.
+pub fn render(frame: &mut Frame, area: Rect, session: &Session, explain: &str) {
     let panel_height = text_rows(session, area.width) + BORDER_ROWS;
     let [panel_area, hint_area] = Layout::vertical([
         Constraint::Length(panel_height),
@@ -32,9 +33,9 @@ pub fn render(frame: &mut Frame, area: Rect, session: &Session) {
     frame.render_widget(text, panel_area);
 
     let hint = if session.is_finished() {
-        "done · esc quit"
+        format!("{explain} · enter next · esc quit")
     } else {
-        "esc quit"
+        "esc quit".to_string()
     };
     frame.render_widget(Span::styled(hint, theme::hint()), hint_area);
 }
@@ -120,7 +121,7 @@ mod tests {
 
         let mut terminal = Terminal::new(TestBackend::new(20, 6)).unwrap();
         terminal
-            .draw(|frame| render(frame, frame.area(), &session))
+            .draw(|frame| render(frame, frame.area(), &session, ""))
             .unwrap();
         let buffer = terminal.backend().buffer();
 

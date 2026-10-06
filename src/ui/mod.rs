@@ -23,7 +23,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     let height = typing::height(&app.session, width);
     let area = centered_area(frame.area(), width, height);
 
-    typing::render(frame, area, &app.session);
+    typing::render(frame, area, &app.session, &app.command().explain);
 }
 
 /// 80% of the terminal width, clamped to `MIN_WIDTH..=MAX_WIDTH`,
@@ -49,34 +49,49 @@ fn centered_area(area: Rect, width: u16, height: u16) -> Rect {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::test_app;
     use crate::event::Event;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-    /// Renders the app after typing "fx" (the 'x' is a mistake, should be 'i').
-    fn render_typing_screen(width: u16, height: u16) -> Terminal<TestBackend> {
-        let mut app = App::new();
-        for c in ['f', 'x'] {
+    fn draw(app: &App, width: u16, height: u16) -> Terminal<TestBackend> {
+        let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+        terminal.draw(|frame| render(frame, app)).unwrap();
+        terminal
+    }
+
+    fn type_text(app: &mut App, text: &str) {
+        for c in text.chars() {
             app.update(Event::Key(KeyEvent::new(
                 KeyCode::Char(c),
                 KeyModifiers::NONE,
             )));
         }
+    }
 
-        let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
-        terminal.draw(|frame| render(frame, &app)).unwrap();
-        terminal
+    /// The app after typing "fx" (the 'x' is a mistake, should be 'i').
+    fn app_with_a_mistake() -> App {
+        let mut app = test_app(&[r#"find /var/log -name '*.log' -mtime +7 -exec gzip {} \;"#]);
+        type_text(&mut app, "fx");
+        app
     }
 
     #[test]
     fn typing_screen_snapshot() {
-        insta::assert_snapshot!(render_typing_screen(80, 12).backend());
+        insta::assert_snapshot!(draw(&app_with_a_mistake(), 80, 12).backend());
     }
 
     #[test]
     fn narrow_typing_screen_wraps_command() {
-        insta::assert_snapshot!(render_typing_screen(40, 12).backend());
+        insta::assert_snapshot!(draw(&app_with_a_mistake(), 40, 12).backend());
+    }
+
+    #[test]
+    fn finished_round_shows_explanation() {
+        let mut app = test_app(&["ls -l | wc -l"]);
+        type_text(&mut app, "ls -l | wc -l");
+        insta::assert_snapshot!(draw(&app, 80, 8).backend());
     }
 
     #[test]
