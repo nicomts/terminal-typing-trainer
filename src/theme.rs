@@ -91,19 +91,23 @@ pub fn cursor() -> Style {
 // ---- Stats, menus, hints ----
 
 /// Live numbers such as WPM and accuracy.
+#[expect(dead_code, reason = "used by a later milestone")]
 pub fn stat_value() -> Style {
     Style::new().fg(CYAN).add_modifier(Modifier::BOLD)
 }
 
 /// The label next to a stat ("wpm", "acc").
+#[expect(dead_code, reason = "used by a later milestone")]
 pub fn stat_label() -> Style {
     Style::new().fg(MUTED)
 }
 
+#[expect(dead_code, reason = "used by a later milestone")]
 pub fn menu_item() -> Style {
     Style::new().fg(TEXT)
 }
 
+#[expect(dead_code, reason = "used by a later milestone")]
 pub fn menu_selected() -> Style {
     Style::new().fg(CYAN).add_modifier(Modifier::BOLD)
 }
