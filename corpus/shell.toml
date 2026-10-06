@@ -1,0 +1,57 @@
+# Shell syntax: redirection, $(), &&, ||, ;, tests, loops, process control.
+# Display text only. These commands are never executed.
+
+[[command]]
+text = '''./backup.sh >> /var/log/backup.log 2>&1'''
+explain = "Append script output and errors"
+tags = ["redirect"]
+
+[[command]]
+text = '''ps aux | grep '[n]ginx' | awk '{print $2}''''
+explain = "PIDs of nginx, not of grep"
+tags = ["ps", "grep", "awk", "pipe"]
+
+[[command]]
+text = '''[ -f ~/.bashrc ] && source ~/.bashrc || echo "missing"'''
+explain = "Reload bashrc if it exists"
+tags = ["test", "and-or"]
+
+[[command]]
+text = '''kill -HUP $(cat /run/nginx.pid)'''
+explain = "Tell nginx to reload its config"
+tags = ["kill", "subshell"]
+
+[[command]]
+text = '''for f in *.conf; do cp "$f" "$f.bak"; done'''
+explain = "Back up every .conf file"
+tags = ["loop", "quoting"]
+
+[[command]]
+text = '''echo "$(whoami)@$(hostname):$PWD"'''
+explain = "Print user, host and directory"
+tags = ["subshell", "quoting"]
+
+[[command]]
+text = '''nohup ./server > out.log 2>&1 & echo $!'''
+explain = "Start in background, print PID"
+tags = ["redirect", "background"]
+
+[[command]]
+text = '''export PATH="$HOME/.local/bin:$PATH"'''
+explain = "Put ~/.local/bin first in PATH"
+tags = ["env", "quoting"]
+
+[[command]]
+text = '''ssh admin@web01 'df -h / | tail -n 1''''
+explain = "Root disk usage on a remote host"
+tags = ["ssh", "pipe", "quoting"]
+
+[[command]]
+text = '''diff <(sort a.txt) <(sort b.txt)'''
+explain = "Compare two files after sorting"
+tags = ["diff", "process-substitution"]
+
+[[command]]
+text = '''crontab -l | { cat; echo "0 3 * * * ~/backup.sh"; } | crontab -'''
+explain = "Add a nightly cron job"
+tags = ["crontab", "pipe", "grouping"]

@@ -1,0 +1,52 @@
+# Text processing: grep, sed, awk, cut, sort, uniq.
+# Display text only. These commands are never executed.
+
+[[command]]
+text = '''grep -rn "TODO" --include='*.rs' ~/src | wc -l'''
+explain = "Count TODOs in Rust files"
+tags = ["grep", "pipe"]
+
+[[command]]
+text = '''awk -F: '$3 >= 1000 {print $1}' /etc/passwd'''
+explain = "List regular user accounts"
+tags = ["awk"]
+
+[[command]]
+text = '''sed -i 's/^#\(PermitRootLogin\)/\1/' /etc/ssh/sshd_config'''
+explain = "Uncomment PermitRootLogin"
+tags = ["sed", "regex"]
+
+[[command]]
+text = '''grep -v '^\s*#' /etc/fstab | grep -v '^$''''
+explain = "Show fstab without comments"
+tags = ["grep", "regex", "pipe"]
+
+[[command]]
+text = '''cut -d' ' -f1 access.log | sort | uniq -c | sort -rn | head'''
+explain = "Top client IPs in access log"
+tags = ["cut", "sort", "uniq", "pipe"]
+
+[[command]]
+text = '''sed -n '/ERROR/,/^$/p' app.log'''
+explain = "Print each ERROR block"
+tags = ["sed", "regex"]
+
+[[command]]
+text = '''awk '{sum += $NF} END {print sum / NR}' times.txt'''
+explain = "Average of the last column"
+tags = ["awk"]
+
+[[command]]
+text = '''grep -E "^(root|admin):" /etc/passwd'''
+explain = "Find root and admin entries"
+tags = ["grep", "regex"]
+
+[[command]]
+text = '''tr -s ' ' < report.txt | sed 's/ *$//' > clean.txt'''
+explain = "Squeeze spaces, trim line ends"
+tags = ["tr", "sed", "redirect", "pipe"]
+
+[[command]]
+text = '''journalctl -u nginx --since "1 hour ago" | grep -i "error"'''
+explain = "Recent nginx errors"
+tags = ["journalctl", "grep", "pipe"]

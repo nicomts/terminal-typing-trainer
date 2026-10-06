@@ -1,0 +1,52 @@
+# Files and directories: find, xargs, archives, permissions, globs.
+# Display text only. These commands are never executed.
+
+[[command]]
+text = '''find /var/log -name '*.log' -mtime +7 -exec gzip {} \;'''
+explain = "Compress logs older than 7 days"
+tags = ["find", "exec"]
+
+[[command]]
+text = '''find . -type f -name '*.tmp' -print0 | xargs -0 rm -f'''
+explain = "Delete temp files, safe for spaces"
+tags = ["find", "xargs", "pipe"]
+
+[[command]]
+text = '''tar -czf ~/backup-$(date +%F).tar.gz /etc'''
+explain = "Archive /etc with today's date"
+tags = ["tar", "subshell"]
+
+[[command]]
+text = '''find /home -type d -perm -o+w 2>/dev/null'''
+explain = "Find world-writable directories"
+tags = ["find", "redirect"]
+
+[[command]]
+text = '''chmod -R u=rwX,g=rX,o= ~/projects'''
+explain = "Owner rw, group read, others none"
+tags = ["chmod"]
+
+[[command]]
+text = '''du -sh /var/* 2>/dev/null | sort -rh | head -n 5'''
+explain = "Five largest dirs under /var"
+tags = ["du", "sort", "pipe", "redirect"]
+
+[[command]]
+text = '''ls -l /etc/{passwd,group,shadow}'''
+explain = "List the three account files"
+tags = ["ls", "brace-expansion"]
+
+[[command]]
+text = '''find ~ -name '*.bak' -size +10M -delete'''
+explain = "Delete .bak files over 10 MB"
+tags = ["find"]
+
+[[command]]
+text = '''cp -a /srv/www/ /backup/www-$(date +%Y%m%d)/'''
+explain = "Copy a site, keep perms and times"
+tags = ["cp", "subshell"]
+
+[[command]]
+text = '''rsync -avz --exclude='*.cache' ~/docs/ user@host:~/docs/'''
+explain = "Sync docs, skip cache files"
+tags = ["rsync", "ssh"]
