@@ -161,7 +161,10 @@ fn weakest_line(profile: &Profile) -> Line<'static> {
     }
     let mut spans = vec![Span::styled("weakest", theme::hint())];
     for (symbol, miss_rate) in weakest {
-        spans.push(Span::styled(format!(" {symbol}"), theme::incorrect(symbol)));
+        // The space gets its own span: in the mistake style it would be
+        // underlined along with the symbol.
+        spans.push(Span::styled(" ", theme::hint()));
+        spans.push(Span::styled(symbol.to_string(), theme::incorrect(symbol)));
         spans.push(Span::styled(
             format!(" {:.0}% ", miss_rate * 100.0),
             theme::hint(),
@@ -337,6 +340,40 @@ mod tests {
             .collect();
         type_text(&mut app, &typed);
         insta::assert_snapshot!(draw_settled(app, 80, 14).backend());
+    }
+
+    /// Every span drawn in the mistake style holds just the symbol, so the
+    /// underline never runs under the spaces around it.
+    fn assert_only_symbols_marked(line: &Line, symbols: &[char]) {
+        let mut marked = Vec::new();
+        for span in &line.spans {
+            if span
+                .style
+                .add_modifier
+                .contains(ratatui::style::Modifier::UNDERLINED)
+            {
+                marked.push(span.content.to_string());
+            }
+        }
+        let expected: Vec<String> = symbols.iter().map(|c| c.to_string()).collect();
+        assert_eq!(marked, expected);
+    }
+
+    #[test]
+    fn weakest_line_underlines_only_the_symbols() {
+        let mut app = started_app(&["a | b {"]);
+        type_text(&mut app, "a x b x");
+        assert_only_symbols_marked(&weakest_line(&app.profile), &['{', '|']);
+    }
+
+    #[test]
+    fn missed_line_underlines_only_the_symbols() {
+        let mut app = started_app(&["a | b {"]);
+        type_text(&mut app, "a x b x");
+        let Screen::Results { stats, .. } = &app.screen else {
+            panic!("expected the Results screen");
+        };
+        assert_only_symbols_marked(&results::missed_line(stats), &['{', '|']);
     }
 
     #[test]

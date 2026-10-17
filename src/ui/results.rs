@@ -103,13 +103,16 @@ fn stats_spans(wpm: f64, accuracy: f64) -> Vec<Span<'static>> {
 }
 
 /// "missed  ' ×2  { ×1", or "no missed symbols".
-fn missed_line(stats: &RoundStats) -> Line<'static> {
+pub(super) fn missed_line(stats: &RoundStats) -> Line<'static> {
     if stats.missed.is_empty() {
         return Line::styled("no missed symbols", theme::hint());
     }
     let mut spans = vec![Span::styled("missed ", theme::hint())];
     for &(symbol, count) in &stats.missed {
-        spans.push(Span::styled(format!(" {symbol}"), theme::incorrect(symbol)));
+        // The space gets its own span: in the mistake style it would be
+        // underlined along with the symbol.
+        spans.push(Span::styled(" ", theme::hint()));
+        spans.push(Span::styled(symbol.to_string(), theme::incorrect(symbol)));
         spans.push(Span::styled(format!(" ×{count} "), theme::hint()));
     }
     Line::from(spans)
