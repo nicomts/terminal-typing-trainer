@@ -16,12 +16,48 @@ use crate::stats::{self, Profile};
 /// must fit in the narrowest panel: 60 columns minus the 2 side borders.
 pub const MAX_EXPLAIN_CHARS: usize = 58;
 
-/// Every corpus file, embedded at compile time. The name is only used in
-/// error messages.
-const FILES: [(&str, &str); 3] = [
-    ("files.toml", include_str!("../corpus/files.toml")),
-    ("text.toml", include_str!("../corpus/text.toml")),
-    ("shell.toml", include_str!("../corpus/shell.toml")),
+/// What a command practises. Each topic is one corpus file.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Topic {
+    // `Default` is only needed by `#[serde(skip)]` below; `load` always
+    // replaces it with the real topic.
+    #[default]
+    Files,
+    Text,
+    Shell,
+}
+
+impl Topic {
+    /// Every topic, in the order the menu lists them.
+    pub const ALL: [Topic; 3] = [Topic::Files, Topic::Text, Topic::Shell];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Topic::Files => "files",
+            Topic::Text => "text",
+            Topic::Shell => "shell",
+        }
+    }
+}
+
+/// Every corpus file, embedded at compile time, with the topic of its
+/// commands. The file name is only used in error messages.
+const FILES: [(Topic, &str, &str); 3] = [
+    (
+        Topic::Files,
+        "files.toml",
+        include_str!("../corpus/files.toml"),
+    ),
+    (
+        Topic::Text,
+        "text.toml",
+        include_str!("../corpus/text.toml"),
+    ),
+    (
+        Topic::Shell,
+        "shell.toml",
+        include_str!("../corpus/shell.toml"),
+    ),
 ];
 
 #[derive(Debug, Deserialize)]
@@ -29,6 +65,10 @@ pub struct Command {
     pub text: String,
     pub explain: String,
     pub tags: Vec<String>,
+    /// Not written in the TOML: it comes from which file the command is in.
+    /// `skip` makes serde fill it with `Topic::default()`.
+    #[serde(skip)]
+    pub topic: Topic,
 }
 
 /// The shape of one corpus file: a list of `[[command]]` tables.
@@ -40,10 +80,11 @@ struct CorpusFile {
 /// Parses and checks every embedded corpus file.
 pub fn load() -> Result<Vec<Command>> {
     let mut commands = Vec::new();
-    for (name, contents) in FILES {
+    for (topic, name, contents) in FILES {
         let file: CorpusFile = toml::from_str(contents)
             .wrap_err_with(|| format!("corpus file {name} is not valid"))?;
-        for command in file.command {
+        for mut command in file.command {
+            command.topic = topic;
             check(&command)
                 .wrap_err_with(|| format!("corpus file {name}: bad command {:?}", command.text))?;
             commands.push(command);
@@ -100,35 +141,45 @@ pub fn command_weight(command: &Command, profile: &Profile) -> f64 {
 }
 
 /// Picks a command index at random, favouring commands with weak symbols.
-/// `current`, if given, is never picked, so a command never comes twice in
-/// a row. With a single command there is no choice: returns 0.
+///
+/// Only commands in `topic` are picked; `None` means any topic. `current`,
+/// if given, is not picked, so a command never comes twice in a row, unless
+/// it is the only command in the topic.
 pub fn pick_weighted(
     commands: &[Command],
     profile: &Profile,
+    topic: Option<Topic>,
     current: Option<usize>,
     rng: &mut StdRng,
 ) -> usize {
-    if commands.len() < 2 {
-        return 0;
-    }
-
+    // Commands that can't be picked get weight 0.
     let mut weights = Vec::with_capacity(commands.len());
+    let mut first_in_topic = None;
     for (i, command) in commands.iter().enumerate() {
-        if Some(i) == current {
-            weights.push(0.0);
-        } else {
+        let in_topic = topic.is_none() || topic == Some(command.topic);
+        if in_topic && first_in_topic.is_none() {
+            first_in_topic = Some(i);
+        }
+        if in_topic && Some(i) != current {
             weights.push(command_weight(command, profile));
+        } else {
+            weights.push(0.0);
         }
     }
 
-    // Think of the weights as lengths laid end to end: draw a point on the
-    // whole line and find which command's stretch it lands in. Every weight
-    // is at least 1 except `current`, so `total` is at least 1.
+    // Every pickable command weighs at least 1, so a total of 0 means there
+    // is nothing to choose from: the topic holds only `current`.
     let total: f64 = weights.iter().sum();
+    if total == 0.0 {
+        return first_in_topic.unwrap_or(0);
+    }
+
+    // Think of the weights as lengths laid end to end: draw a point on the
+    // whole line and find which command's stretch it lands in.
     let mut point = rng.random_range(0.0..total);
     let mut last_candidate = 0;
     for (i, &weight) in weights.iter().enumerate() {
-        if Some(i) == current {
+        if weight == 0.0 {
             continue;
         }
         if point < weight {
@@ -151,6 +202,7 @@ mod tests {
             text: text.to_string(),
             explain: explain.to_string(),
             tags: vec!["test".to_string()],
+            topic: Topic::Files,
         }
     }
 
@@ -159,6 +211,15 @@ mod tests {
         // If this fails, the error names the file and the command.
         let commands = load().unwrap();
         assert!(commands.len() >= 30);
+    }
+
+    #[test]
+    fn every_topic_has_commands() {
+        // The menu offers every topic, so none may be empty.
+        let commands = load().unwrap();
+        for topic in Topic::ALL {
+            assert!(commands.iter().any(|c| c.topic == topic), "{topic:?}");
+        }
     }
 
     #[test]
@@ -229,7 +290,7 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(1);
         let mut current = 0;
         for _ in 0..200 {
-            let next = pick_weighted(&list, &profile, Some(current), &mut rng);
+            let next = pick_weighted(&list, &profile, None, Some(current), &mut rng);
             assert_ne!(next, current);
             assert!(next < 3);
             current = next;
@@ -242,7 +303,7 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(1);
         let mut seen = [false; 4];
         for _ in 0..200 {
-            seen[pick_weighted(&list, &Profile::default(), Some(0), &mut rng)] = true;
+            seen[pick_weighted(&list, &Profile::default(), None, Some(0), &mut rng)] = true;
         }
         assert_eq!(seen, [false, true, true, true]);
     }
@@ -262,7 +323,7 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(1);
         let mut pipes = 0;
         for _ in 0..2000 {
-            if pick_weighted(&list, &profile, None, &mut rng) == 1 {
+            if pick_weighted(&list, &profile, None, None, &mut rng) == 1 {
                 pipes += 1;
             }
         }
@@ -274,8 +335,43 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(1);
         let list = commands(&["ls"]);
         assert_eq!(
-            pick_weighted(&list, &Profile::default(), Some(0), &mut rng),
+            pick_weighted(&list, &Profile::default(), None, Some(0), &mut rng),
             0
+        );
+    }
+
+    #[test]
+    fn pick_weighted_stays_in_the_topic() {
+        let mut list = commands(&["ls", "a | b", "a & b", "pwd"]);
+        list[1].topic = Topic::Shell;
+        list[2].topic = Topic::Shell;
+        let mut rng = StdRng::seed_from_u64(1);
+        for _ in 0..200 {
+            let picked = pick_weighted(
+                &list,
+                &Profile::default(),
+                Some(Topic::Shell),
+                None,
+                &mut rng,
+            );
+            assert_eq!(list[picked].topic, Topic::Shell);
+        }
+    }
+
+    #[test]
+    fn pick_weighted_repeats_the_only_command_in_a_topic() {
+        let mut list = commands(&["ls", "a | b", "pwd"]);
+        list[1].topic = Topic::Shell;
+        let mut rng = StdRng::seed_from_u64(1);
+        assert_eq!(
+            pick_weighted(
+                &list,
+                &Profile::default(),
+                Some(Topic::Shell),
+                Some(1),
+                &mut rng
+            ),
+            1
         );
     }
 }

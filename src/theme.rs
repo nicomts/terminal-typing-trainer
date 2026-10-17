@@ -100,12 +100,12 @@ pub fn stat_label() -> Style {
     Style::new().fg(MUTED)
 }
 
-#[expect(dead_code, reason = "used by a later milestone")]
+/// A menu row that isn't selected.
 pub fn menu_item() -> Style {
     Style::new().fg(TEXT)
 }
 
-#[expect(dead_code, reason = "used by a later milestone")]
+/// The selected menu row.
 pub fn menu_selected() -> Style {
     Style::new().fg(CYAN).add_modifier(Modifier::BOLD)
 }

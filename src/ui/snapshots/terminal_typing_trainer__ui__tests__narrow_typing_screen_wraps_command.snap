@@ -1,6 +1,6 @@
 ---
 source: src/ui/mod.rs
-expression: "render_typing_screen(40, 12).backend()"
+expression: "draw(&app_with_a_mistake(), 40, 12).backend()"
 ---
 "                                        "
 "                                        "
@@ -10,7 +10,7 @@ expression: "render_typing_screen(40, 12).backend()"
 "│find /var/log -name '*.log' -mtime +7 │"
 "│-exec gzip {} \;                      │"
 "╰──────────────────────────────────────╯"
-"esc quit                                "
+"esc menu                                "
 "                                        "
 "                                        "
 "                                        "

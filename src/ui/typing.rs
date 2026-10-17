@@ -27,7 +27,7 @@ pub fn render(frame: &mut Frame, area: Rect, session: &Session) {
     let text = Paragraph::new(lines).block(theme::panel_block(true).title(" type "));
     frame.render_widget(text, panel_area);
 
-    frame.render_widget(Span::styled("esc quit", theme::hint()), hint_area);
+    frame.render_widget(Span::styled("esc menu", theme::hint()), hint_area);
 }
 
 /// One span per target character, styled by how far the user has got.

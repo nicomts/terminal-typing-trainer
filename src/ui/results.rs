@@ -7,7 +7,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
-use super::{BORDER_ROWS, HINT_ROWS, command_rows, wrap_spans};
+use super::{BORDER_ROWS, HINT_ROWS, command_rows, weakest_line, wrap_spans};
 use crate::session::Session;
 use crate::stats::{Profile, RoundStats};
 use crate::theme;
@@ -15,8 +15,6 @@ use crate::theme;
 /// Rows inside the panel under the command: stats, explanation, missed
 /// symbols, weakest symbols.
 const SUMMARY_ROWS: u16 = 4;
-/// How many symbols the "weakest" row lists.
-const WEAKEST_SHOWN: usize = 3;
 
 /// Total rows this screen needs at `width` columns. No empty rows.
 pub fn height(session: &Session, width: u16) -> u16 {
@@ -51,7 +49,7 @@ pub fn render(
     frame.render_widget(panel, panel_area);
 
     frame.render_widget(
-        Span::styled("enter next · esc quit", theme::hint()),
+        Span::styled("enter next · esc menu", theme::hint()),
         hint_area,
     );
 }
@@ -93,23 +91,6 @@ fn missed_line(stats: &RoundStats) -> Line<'static> {
     for &(symbol, count) in &stats.missed {
         spans.push(Span::styled(format!(" {symbol}"), theme::incorrect(symbol)));
         spans.push(Span::styled(format!(" ×{count} "), theme::hint()));
-    }
-    Line::from(spans)
-}
-
-/// "weakest  ' 46%  { 38%  | 25%": over all rounds, by plain miss rate.
-fn weakest_line(profile: &Profile) -> Line<'static> {
-    let weakest = profile.weakest(WEAKEST_SHOWN);
-    if weakest.is_empty() {
-        return Line::styled("no weak symbols yet", theme::hint());
-    }
-    let mut spans = vec![Span::styled("weakest", theme::hint())];
-    for (symbol, miss_rate) in weakest {
-        spans.push(Span::styled(format!(" {symbol}"), theme::incorrect(symbol)));
-        spans.push(Span::styled(
-            format!(" {:.0}% ", miss_rate * 100.0),
-            theme::hint(),
-        ));
     }
     Line::from(spans)
 }

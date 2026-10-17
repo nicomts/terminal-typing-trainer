@@ -1,0 +1,16 @@
+---
+source: src/ui/mod.rs
+expression: "draw(&app, 80, 12).backend()"
+---
+"                                                                                "
+"        ╭ terminal typing trainer ─────────────────────────────────────╮        "
+"        │  all topics                                                  │        "
+"        │> files                                                       │        "
+"        │  text                                                        │        "
+"        │  shell                                                       │        "
+"        │                                                              │        "
+"        │1 round   best 60 wpm                                         │        "
+"        │weakest | 100%                                                │        "
+"        ╰──────────────────────────────────────────────────────────────╯        "
+"        ↑↓ choose · enter start · esc quit                                      "
+"                                                                                "

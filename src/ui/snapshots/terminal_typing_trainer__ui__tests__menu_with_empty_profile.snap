@@ -1,0 +1,16 @@
+---
+source: src/ui/mod.rs
+expression: "draw(&test_app(&[FIND]), 80, 12).backend()"
+---
+"                                                                                "
+"        ╭ terminal typing trainer ─────────────────────────────────────╮        "
+"        │> all topics                                                  │        "
+"        │  files                                                       │        "
+"        │  text                                                        │        "
+"        │  shell                                                       │        "
+"        │                                                              │        "
+"        │no rounds yet                                                 │        "
+"        │no weak symbols yet                                           │        "
+"        ╰──────────────────────────────────────────────────────────────╯        "
+"        ↑↓ choose · enter start · esc quit                                      "
+"                                                                                "

@@ -1,9 +1,10 @@
 //! Top-level layout. Reads `App`, never changes it.
 //!
-//! Also holds the helpers both screens use to wrap the command. They are
-//! private here, yet `typing` and `results` can call them: a child module
-//! can see everything in its parent module.
+//! Also holds the helpers the screens share: wrapping the command and the
+//! "weakest symbols" line. They are private here, yet the screen modules can
+//! call them: a child module can see everything in its parent module.
 
+mod menu;
 mod results;
 mod typing;
 
@@ -13,6 +14,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Block;
 
 use crate::app::{App, Screen};
+use crate::stats::Profile;
 use crate::theme;
 
 const MIN_WIDTH: u16 = 60;
@@ -22,6 +24,8 @@ const MAX_WIDTH: u16 = 110;
 const BORDER_ROWS: u16 = 2;
 /// Rows taken by the key hint under a panel.
 const HINT_ROWS: u16 = 1;
+/// How many symbols the "weakest" line lists.
+const WEAKEST_SHOWN: usize = 3;
 
 pub fn render(frame: &mut Frame, app: &App) {
     // Paint the whole screen so the terminal's own background never shows.
@@ -33,6 +37,10 @@ pub fn render(frame: &mut Frame, app: &App) {
     let width = content_width(frame.area().width);
 
     match &app.screen {
+        Screen::Menu { selected } => {
+            let area = centered_area(frame.area(), width, menu::height());
+            menu::render(frame, area, *selected, &app.profile);
+        }
         Screen::Typing => {
             let height = typing::height(&app.session, width);
             let area = centered_area(frame.area(), width, height);
@@ -108,6 +116,23 @@ fn wrap_spans(spans: Vec<Span<'static>>, width: u16) -> Vec<Line<'static>> {
     lines
 }
 
+/// "weakest  ' 46%  { 38%  | 25%": over all rounds, by plain miss rate.
+fn weakest_line(profile: &Profile) -> Line<'static> {
+    let weakest = profile.weakest(WEAKEST_SHOWN);
+    if weakest.is_empty() {
+        return Line::styled("no weak symbols yet", theme::hint());
+    }
+    let mut spans = vec![Span::styled("weakest", theme::hint())];
+    for (symbol, miss_rate) in weakest {
+        spans.push(Span::styled(format!(" {symbol}"), theme::incorrect(symbol)));
+        spans.push(Span::styled(
+            format!(" {:.0}% ", miss_rate * 100.0),
+            theme::hint(),
+        ));
+    }
+    Line::from(spans)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,11 +161,49 @@ mod tests {
         }
     }
 
+    /// A test app past the menu, on the Typing screen.
+    fn started_app(texts: &[&str]) -> App {
+        let mut app = test_app(texts);
+        app.update(press_at(KeyCode::Enter, Instant::now()));
+        app
+    }
+
     /// The app after typing "fx" (the 'x' is a mistake, should be 'i').
     fn app_with_a_mistake() -> App {
-        let mut app = test_app(&[FIND]);
+        let mut app = started_app(&[FIND]);
         type_text(&mut app, "fx");
         app
+    }
+
+    #[test]
+    fn menu_with_empty_profile() {
+        insta::assert_snapshot!(draw(&test_app(&[FIND]), 80, 12).backend());
+    }
+
+    #[test]
+    fn menu_with_second_item_selected() {
+        let mut app = test_app(&["ls -l | wc -l"]);
+        // Play one round with a mistake on '|', so the totals show up.
+        app.update(press_at(KeyCode::Enter, Instant::now()));
+        type_text(&mut app, "ls -l x wc -l");
+        app.update(press_at(KeyCode::Esc, Instant::now()));
+        app.update(press_at(KeyCode::Down, Instant::now()));
+        insta::assert_snapshot!(draw(&app, 80, 12).backend());
+    }
+
+    #[test]
+    fn menu_selection_is_styled() {
+        let app = test_app(&[FIND]);
+        let terminal = draw(&app, 80, 12);
+        let buffer = terminal.backend().buffer();
+        // The 64-wide panel starts at column 8 and is 10 rows high, centred
+        // in 12. Inside the border, "> all topics" starts at (9, 2), so its
+        // "a" is at column 11.
+        let selected = &buffer[(11, 2)];
+        assert_eq!(selected.symbol(), "a");
+        assert_eq!(Some(selected.fg), theme::menu_selected().fg);
+        let other = &buffer[(11, 3)];
+        assert_eq!(Some(other.fg), theme::menu_item().fg);
     }
 
     #[test]
@@ -155,14 +218,14 @@ mod tests {
 
     #[test]
     fn results_without_mistakes() {
-        let mut app = test_app(&["ls -l | wc -l"]);
+        let mut app = started_app(&["ls -l | wc -l"]);
         type_text(&mut app, "ls -l | wc -l");
         insta::assert_snapshot!(draw(&app, 80, 10).backend());
     }
 
     #[test]
     fn results_with_missed_symbols() {
-        let mut app = test_app(&[FIND]);
+        let mut app = started_app(&[FIND]);
         // Miss both quotes and the opening brace, without correcting them.
         let typed: String = FIND
             .chars()
