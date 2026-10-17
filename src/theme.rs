@@ -9,12 +9,12 @@ use ratatui::widgets::{Block, BorderType, Borders};
 
 // ---- Raw palette: Project DL, tuned for terminals ----
 //
-// Box-drawing borders are one cell thin and panels are separated only by
-// their fill, so the dark tones are spread further apart than on the web.
+// The screen and the panels share one background, so a panel is outlined
+// only by its border. Box-drawing borders are one cell thin, so the border
+// tones are brighter than on the web to stand out against it.
 // Original Project DL values are noted where a color changed.
 
 const BACKGROUND: Color = Color::Rgb(0x0C, 0x0C, 0x10);
-const SURFACE: Color = Color::Rgb(0x1A, 0x1A, 0x24); // was #13131A
 const BORDER: Color = Color::Rgb(0x3A, 0x3A, 0x52); // was #1E1E2A
 const BORDER_FOCUS: Color = Color::Rgb(0x62, 0x66, 0x8A); // new
 const CYAN: Color = Color::Rgb(0x00, 0xD4, 0xFF); // Accent 1, unchanged
@@ -34,9 +34,9 @@ pub fn app() -> Style {
     Style::new().fg(TEXT).bg(BACKGROUND)
 }
 
-/// Inside of a bordered panel.
+/// Inside of a bordered panel: the same background as the screen.
 pub fn panel() -> Style {
-    Style::new().fg(TEXT).bg(SURFACE)
+    Style::new().fg(TEXT).bg(BACKGROUND)
 }
 
 /// Border of an inactive panel. Deliberately subtle.
@@ -56,7 +56,7 @@ pub fn border_focused() -> Style {
     Style::new().fg(BORDER_FOCUS)
 }
 
-/// The block every panel is built from: rounded corners, panel fill,
+/// The block every panel is built from: rounded corners, the panel style,
 /// border colored by focus. Add a title with `.title(...)` at the call site.
 pub fn panel_block(focused: bool) -> Block<'static> {
     let border_style = if focused { border_focused() } else { border() };
@@ -190,6 +190,11 @@ mod tests {
     fn missed_space_is_visible() {
         // A space has no glyph, so only a background makes the mistake visible.
         assert_eq!(incorrect(' ').bg, Some(ERROR));
+    }
+
+    #[test]
+    fn panels_share_the_screen_background() {
+        assert_eq!(panel().bg, app().bg);
     }
 
     #[test]
