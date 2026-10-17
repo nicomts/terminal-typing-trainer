@@ -5,7 +5,7 @@ drills real Linux sysadmin commands instead of English words. These are the
 commands full of `| & ; > >> 2>&1 $() {} [] ^ ~ \ ' "` that slow you down at a
 shell prompt.
 
-![The menu: the TYPE TRAINER logo, the topics and your stats](screenshot.jpg)
+![The menu: the TYPE TRAINER logo, the topics and your stats](docs/screenshot.jpg)
 
 While you type, the panel shows your live speed and time, with a progress bar
 underneath:
