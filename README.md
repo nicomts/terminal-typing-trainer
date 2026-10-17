@@ -5,22 +5,12 @@ drills real Linux sysadmin commands instead of English words. These are the
 commands full of `| & ; > >> 2>&1 $() {} [] ^ ~ \ ' "` that slow you down at a
 shell prompt.
 
+![The menu: the TYPE TRAINER logo, the topics and your stats](screenshot.jpg)
+
+While you type, the panel shows your live speed and time, with a progress bar
+underneath:
+
 ```
-          ▀█▀ █ █ █▀█ █▀▀   ▀█▀ █▀█ █▀█ ▀█▀ █▀▄ █▀▀ █▀█
-           █  ▀█▀ █▀▀ █▀▀    █  █▀▄ █▀█  █  █ █ █▀▀ █▀▄
-           ▀   ▀  ▀   ▀▀▀    ▀  ▀ ▀ ▀ ▀ ▀▀▀ ▀ ▀ ▀▀▀ ▀ ▀
-
-╭ choose a topic ──────────────────────────────────────────────╮
-│ ▸ all topics                                                 │
-│   files                                                      │
-│   text                                                       │
-│   shell                                                      │
-│                                                              │
-│   12 rounds   best 64 wpm                                    │
-│   weakest ' 46%  { 38%  | 25%                                │
-╰──────────────────────────────────────────────────────────────╯
-↑↓ choose · enter start · esc quit
-
 ╭ type ───────────────────────────────────────── 42 wpm · 0:07 ╮
 │ find /var/log -name '*.log' -mtime +7 -exec gzip {} \;       │
 ╰──────────────────────────────────────────────────────────────╯
