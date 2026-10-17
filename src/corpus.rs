@@ -13,8 +13,9 @@ use serde::Deserialize;
 use crate::stats::{self, Profile};
 
 /// Longest allowed `explain`. It gets one row of the Results panel, so it
-/// must fit in the narrowest panel: 60 columns minus the 2 side borders.
-pub const MAX_EXPLAIN_CHARS: usize = 58;
+/// must fit in the narrowest panel: 60 columns minus the 2 side borders and
+/// the 2 columns of padding inside them.
+pub const MAX_EXPLAIN_CHARS: usize = 56;
 
 /// What a command practises. Each topic is one corpus file.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]

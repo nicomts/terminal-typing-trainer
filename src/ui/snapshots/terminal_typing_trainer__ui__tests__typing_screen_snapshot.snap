@@ -1,5 +1,6 @@
 ---
 source: src/ui/mod.rs
+assertion_line: 315
 expression: "draw_settled(app_with_a_mistake(), 80, 12).backend()"
 ---
 "                                                                                "
@@ -7,9 +8,9 @@ expression: "draw_settled(app_with_a_mistake(), 80, 12).backend()"
 "                                                                                "
 "                                                                                "
 "        ╭ type ────────────────────────────────────────── 1 wpm · 0:10 ╮        "
-"        │find /var/log -name '*.log' -mtime +7 -exec gzip {} \;        │        "
+"        │ find /var/log -name '*.log' -mtime +7 -exec gzip {} \;       │        "
 "        ╰──────────────────────────────────────────────────────────────╯        "
-"         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━         "
+"        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━        "
 "        esc menu                                                                "
 "                                                                                "
 "                                                                                "

@@ -5,7 +5,7 @@
 //! something is (a mistake, the cursor) rather than *which color* it is.
 
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::widgets::{Block, BorderType, Borders};
+use ratatui::widgets::{Block, BorderType, Borders, Padding};
 
 // ---- Raw palette: Project DL, tuned for terminals ----
 //
@@ -57,13 +57,16 @@ pub fn border_focused() -> Style {
 }
 
 /// The block every panel is built from: rounded corners, the panel style,
-/// border colored by focus. Add a title with `.title(...)` at the call site.
+/// border colored by focus, and one column of space inside each side
+/// border so text doesn't touch it. Add a title with `.title(...)` at the
+/// call site.
 pub fn panel_block(focused: bool) -> Block<'static> {
     let border_style = if focused { border_focused() } else { border() };
     Block::new()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .border_style(border_style)
+        .padding(Padding::horizontal(1))
         .style(panel())
 }
 

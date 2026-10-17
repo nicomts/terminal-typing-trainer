@@ -1,16 +1,17 @@
 ---
 source: src/ui/mod.rs
+assertion_line: 327
 expression: "draw_settled(app, 80, 12).backend()"
 ---
 "                                                                                "
 "                                                                                "
 "        ╭ results ─────────────────────────────────────────────────────╮        "
-"        │ls -l | wc -l                                                 │        "
-"        │65 wpm   100% acc                                             │        "
-"        │━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│        "
-"        │Explain this                                                  │        "
-"        │no missed symbols                                             │        "
-"        │no weak symbols yet                                           │        "
+"        │ ls -l | wc -l                                                │        "
+"        │ 65 wpm   100% acc                                            │        "
+"        │ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │        "
+"        │ Explain this                                                 │        "
+"        │ no missed symbols                                            │        "
+"        │ no weak symbols yet                                          │        "
 "        ╰──────────────────────────────────────────────────────────────╯        "
 "        enter next · esc menu                                                   "
 "                                                                                "

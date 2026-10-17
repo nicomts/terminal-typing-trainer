@@ -100,10 +100,15 @@ fn centered_area(area: Rect, width: u16, height: u16) -> Rect {
     centered
 }
 
-/// Columns available for text inside a panel `width` wide (minus the two
-/// side borders). At least 1, so a tiny terminal never divides by zero.
+/// Columns a panel uses on each side for its border (1) and the padding
+/// inside it (1). Must match `theme::panel_block`.
+const PANEL_SIDE_COLUMNS: u16 = 2;
+
+/// Columns available for text inside a panel `width` wide (minus border and
+/// padding on both sides). At least 1, so a tiny terminal never divides by
+/// zero.
 fn inner_width(width: u16) -> usize {
-    usize::from(width.saturating_sub(2)).max(1)
+    usize::from(width.saturating_sub(2 * PANEL_SIDE_COLUMNS)).max(1)
 }
 
 /// How many rows a command of `len` characters wraps to inside a panel
@@ -252,8 +257,9 @@ mod tests {
         let terminal = draw_settled(test_app(&[FIND]), 80, 16);
         let buffer = terminal.backend().buffer();
         // The 64-wide panel starts at column 8, the menu is 14 rows centred
-        // in 16, and the first item is the 6th row of it. Inside the border,
-        // " ▸ all topics" starts at column 9, so its "a" is at column 12.
+        // in 16, and the first item is the 6th row of it. After the border
+        // and one column of padding, "▸ all topics" starts at column 10, so
+        // its "a" is at column 12.
         let selected = &buffer[(12, 6)];
         assert_eq!(selected.symbol(), "a");
         assert_eq!(Some(selected.fg), theme::menu_selected().fg);
@@ -289,19 +295,19 @@ mod tests {
             row
         };
         let start = draw(&app, 80, 12);
-        assert!(stats_row(&start).contains("│0 wpm   0% acc"));
+        assert!(stats_row(&start).contains("│ 0 wpm   0% acc"));
 
         app.update(Event::Tick {
             at: app.now + Duration::from_millis(200),
         });
         let middle = stats_row(&draw(&app, 80, 12));
         assert!(
-            !middle.contains("│65 wpm") && !middle.contains("│0 wpm"),
+            !middle.contains("│ 65 wpm") && !middle.contains("│ 0 wpm"),
             "{middle}"
         );
 
         settle(&mut app);
-        assert!(stats_row(&draw(&app, 80, 12)).contains("│65 wpm   100% acc"));
+        assert!(stats_row(&draw(&app, 80, 12)).contains("│ 65 wpm   100% acc"));
     }
 
     #[test]
@@ -361,18 +367,18 @@ mod tests {
 
     #[test]
     fn short_command_takes_one_row() {
-        // Panel 20 wide leaves 18 columns for text.
+        // Panel 20 wide leaves 16 columns for text: 2 borders, 2 padding.
         assert_eq!(command_rows(5, 20), 1);
     }
 
     #[test]
     fn command_that_fills_a_row_exactly_takes_one_row() {
-        assert_eq!(command_rows(18, 20), 1);
+        assert_eq!(command_rows(16, 20), 1);
     }
 
     #[test]
     fn long_command_wraps_onto_more_rows() {
-        assert_eq!(command_rows(19, 20), 2);
+        assert_eq!(command_rows(17, 20), 2);
     }
 
     #[test]
@@ -383,7 +389,7 @@ mod tests {
             .collect();
         let lines = wrap_spans(spans, 20);
         assert_eq!(lines.len(), usize::from(command_rows(26, 20)));
-        assert_eq!(lines[0].width(), 18);
+        assert_eq!(lines[0].width(), 16);
     }
 
     #[test]

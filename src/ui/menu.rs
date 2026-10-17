@@ -61,8 +61,8 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, selected: usize) {
         lines.push(item_line(row, row == selected, row_width));
     }
     lines.push(Line::default());
-    lines.push(totals_line(&app.profile));
-    lines.push(weakest_line(&app.profile));
+    lines.push(indented(totals_line(&app.profile)));
+    lines.push(indented(weakest_line(&app.profile)));
 
     let panel = Paragraph::new(lines).block(theme::panel_block(true).title(" choose a topic "));
     frame.render_widget(panel, panel_area);
@@ -108,6 +108,9 @@ fn shimmer_glow(column: f64, center: Option<f64>) -> f64 {
     }
 }
 
+/// Columns before a menu label: the "▸ " marker, or two spaces.
+const MARKER_COLUMNS: usize = 2;
+
 /// "▸ shell" when selected, "  shell" otherwise. The marker means the
 /// selection doesn't rely on color alone. Padded to `width` so the
 /// selected row's highlight spans the whole panel.
@@ -118,11 +121,18 @@ fn item_line(row: usize, is_selected: bool, width: usize) -> Line<'static> {
     };
     if is_selected {
         // `{label:<pad$}` left-aligns `label` and fills with spaces to `pad`.
-        let pad = width.saturating_sub(3);
-        Line::styled(format!(" ▸ {label:<pad$}"), theme::menu_selected())
+        let pad = width.saturating_sub(MARKER_COLUMNS);
+        Line::styled(format!("▸ {label:<pad$}"), theme::menu_selected())
     } else {
-        Line::styled(format!("   {label}"), theme::menu_item())
+        Line::styled(format!("  {label}"), theme::menu_item())
     }
+}
+
+/// `line` pushed right by the marker's width, so it starts in the same
+/// column as the menu labels and only the "▸" sits further left.
+fn indented(mut line: Line<'static>) -> Line<'static> {
+    line.spans.insert(0, Span::raw(" ".repeat(MARKER_COLUMNS)));
+    line
 }
 
 /// "12 rounds   best 64 wpm", or "no rounds yet".

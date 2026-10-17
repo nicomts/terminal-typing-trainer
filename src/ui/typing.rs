@@ -5,12 +5,12 @@
 use std::time::Duration;
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Margin, Rect};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
-use super::{BAR_ROWS, BORDER_ROWS, HINT_ROWS, bar_line, command_rows, inner_width, wrap_spans};
+use super::{BAR_ROWS, BORDER_ROWS, HINT_ROWS, bar_line, command_rows, wrap_spans};
 use crate::anim;
 use crate::app::App;
 use crate::session::Session;
@@ -53,10 +53,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let lines = wrap_spans(target_spans(session, cursor_style(app)), area.width);
     frame.render_widget(Paragraph::new(lines).block(block), panel_area);
 
-    // The bar is as wide as the text inside the panel, and lines up with it.
+    // The bar spans the panel from corner to corner, like the hint under it
+    // starts at the panel's left edge.
     let done = session.typed().len() as f64 / session.target().len().max(1) as f64;
-    let bar_area = bar_area.inner(Margin::new(1, 0));
-    frame.render_widget(bar_line(done, inner_width(area.width)), bar_area);
+    frame.render_widget(bar_line(done, usize::from(bar_area.width)), bar_area);
 
     frame.render_widget(Span::styled("esc menu", theme::hint()), hint_area);
 }
@@ -158,12 +158,12 @@ mod tests {
     fn chars_are_styled_by_typing_state() {
         let buffer = draw(&app_after_lx(Instant::now()));
 
-        // Text starts inside the border, at (1, 1).
-        assert_cell_has(&buffer[(1, 1)], theme::correct());
-        assert_cell_has(&buffer[(2, 1)], theme::incorrect('s'));
-        assert_eq!(buffer[(2, 1)].symbol(), "s");
-        assert_cell_has(&buffer[(3, 1)], theme::cursor());
-        assert_cell_has(&buffer[(4, 1)], theme::untyped());
+        // Text starts after the border and one column of padding, at (2, 1).
+        assert_cell_has(&buffer[(2, 1)], theme::correct());
+        assert_cell_has(&buffer[(3, 1)], theme::incorrect('s'));
+        assert_eq!(buffer[(3, 1)].symbol(), "s");
+        assert_cell_has(&buffer[(4, 1)], theme::cursor());
+        assert_cell_has(&buffer[(5, 1)], theme::untyped());
     }
 
     #[test]
@@ -174,7 +174,7 @@ mod tests {
         app.update(Event::Tick {
             at: t0 + Duration::from_millis(600),
         });
-        assert_cell_has(&draw(&app)[(3, 1)], theme::cursor_dim());
+        assert_cell_has(&draw(&app)[(4, 1)], theme::cursor_dim());
     }
 
     #[test]

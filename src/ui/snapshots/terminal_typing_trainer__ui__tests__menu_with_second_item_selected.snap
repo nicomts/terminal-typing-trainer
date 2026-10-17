@@ -1,5 +1,6 @@
 ---
 source: src/ui/mod.rs
+assertion_line: 252
 expression: "draw_settled(app, 80, 16).backend()"
 ---
 "                                                                                "
@@ -13,8 +14,8 @@ expression: "draw_settled(app, 80, 16).backend()"
 "        │   text                                                       │        "
 "        │   shell                                                      │        "
 "        │                                                              │        "
-"        │1 round   best 60 wpm                                         │        "
-"        │weakest | 100%                                                │        "
+"        │   1 round   best 60 wpm                                      │        "
+"        │   weakest | 100%                                             │        "
 "        ╰──────────────────────────────────────────────────────────────╯        "
 "        ↑↓ choose · enter start · esc quit                                      "
 "                                                                                "
