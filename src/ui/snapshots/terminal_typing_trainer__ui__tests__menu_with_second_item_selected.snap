@@ -1,13 +1,17 @@
 ---
 source: src/ui/mod.rs
-expression: "draw(&app, 80, 12).backend()"
+expression: "draw_settled(app, 80, 16).backend()"
 ---
 "                                                                                "
-"        ╭ terminal typing trainer ─────────────────────────────────────╮        "
-"        │  all topics                                                  │        "
-"        │> files                                                       │        "
-"        │  text                                                        │        "
-"        │  shell                                                       │        "
+"                  ▀█▀ █ █ █▀█ █▀▀   ▀█▀ █▀█ █▀█ ▀█▀ █▀▄ █▀▀ █▀█                 "
+"                   █  ▀█▀ █▀▀ █▀▀    █  █▀▄ █▀█  █  █ █ █▀▀ █▀▄                 "
+"                   ▀   ▀  ▀   ▀▀▀    ▀  ▀ ▀ ▀ ▀ ▀▀▀ ▀ ▀ ▀▀▀ ▀ ▀                 "
+"                                                                                "
+"        ╭ choose a topic ──────────────────────────────────────────────╮        "
+"        │   all topics                                                 │        "
+"        │ ▸ files                                                      │        "
+"        │   text                                                       │        "
+"        │   shell                                                      │        "
 "        │                                                              │        "
 "        │1 round   best 60 wpm                                         │        "
 "        │weakest | 100%                                                │        "

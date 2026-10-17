@@ -1,11 +1,13 @@
 ---
 source: src/ui/mod.rs
-expression: "draw(&app, 80, 10).backend()"
+expression: "draw_settled(app, 80, 12).backend()"
 ---
+"                                                                                "
 "                                                                                "
 "        ╭ results ─────────────────────────────────────────────────────╮        "
 "        │ls -l | wc -l                                                 │        "
 "        │65 wpm   100% acc                                             │        "
+"        │━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│        "
 "        │Explain this                                                  │        "
 "        │no missed symbols                                             │        "
 "        │no weak symbols yet                                           │        "

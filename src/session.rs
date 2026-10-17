@@ -76,6 +76,11 @@ impl Session {
         }
     }
 
+    /// Time of the first keystroke, if there has been one.
+    pub fn started_at(&self) -> Option<Instant> {
+        self.started_at
+    }
+
     pub fn target(&self) -> &[char] {
         &self.target
     }

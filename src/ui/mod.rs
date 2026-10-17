@@ -4,15 +4,19 @@
 //! "weakest symbols" line. They are private here, yet the screen modules can
 //! call them: a child module can see everything in its parent module.
 
+mod logo;
 mod menu;
 mod results;
 mod typing;
+
+use std::time::Duration;
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Block;
 
+use crate::anim;
 use crate::app::{App, Screen};
 use crate::stats::Profile;
 use crate::theme;
@@ -24,6 +28,10 @@ const MAX_WIDTH: u16 = 110;
 const BORDER_ROWS: u16 = 2;
 /// Rows taken by the key hint under a panel.
 const HINT_ROWS: u16 = 1;
+/// Rows taken by a progress or accuracy bar.
+const BAR_ROWS: u16 = 1;
+/// How long a new screen takes to fade in.
+const FADE_IN: Duration = Duration::from_millis(180);
 /// How many symbols the "weakest" line lists.
 const WEAKEST_SHOWN: usize = 3;
 
@@ -39,25 +47,36 @@ pub fn render(frame: &mut Frame, app: &App) {
     match &app.screen {
         Screen::Menu { selected } => {
             let area = centered_area(frame.area(), width, menu::height());
-            menu::render(frame, area, *selected, &app.profile);
+            menu::render(frame, area, app, *selected);
         }
         Screen::Typing => {
             let height = typing::height(&app.session, width);
             let area = centered_area(frame.area(), width, height);
-            typing::render(frame, area, &app.session);
+            typing::render(frame, area, app);
         }
-        Screen::Results(stats) => {
+        Screen::Results { stats, new_best } => {
             let height = results::height(&app.session, width);
             let area = centered_area(frame.area(), width, height);
-            results::render(
-                frame,
-                area,
-                &app.session,
-                stats,
-                &app.profile,
-                &app.command().explain,
-            );
+            results::render(frame, area, app, stats, *new_best);
         }
+    }
+
+    fade_in(frame, anim::progress(app.screen_since, app.now, FADE_IN));
+}
+
+/// Blends every cell from the background towards its real colors. At
+/// `t` = 1.0 (the usual case, once the fade is over) nothing changes.
+///
+/// Done as one pass over the finished frame, so the screens don't need to
+/// know about the fade at all.
+fn fade_in(frame: &mut Frame, t: f64) {
+    if t >= 1.0 {
+        return;
+    }
+    let t = anim::ease_out(t);
+    for cell in frame.buffer_mut().content.iter_mut() {
+        cell.fg = theme::fade_in(cell.fg, t);
+        cell.bg = theme::fade_in(cell.bg, t);
     }
 }
 
@@ -116,6 +135,19 @@ fn wrap_spans(spans: Vec<Span<'static>>, width: u16) -> Vec<Line<'static>> {
     lines
 }
 
+/// A bar `width` columns wide, filled from the left by `fraction`
+/// (0.0 to 1.0) of its length.
+fn bar_line(fraction: f64, width: usize) -> Line<'static> {
+    let fraction = fraction.clamp(0.0, 1.0);
+    // Rounded to whole cells. `as usize` can't overflow here, because the
+    // product is between 0 and `width`.
+    let filled = (fraction * width as f64).round() as usize;
+    Line::from(vec![
+        Span::styled("━".repeat(filled), theme::bar_filled()),
+        Span::styled("━".repeat(width - filled), theme::bar_empty()),
+    ])
+}
+
 /// "weakest  ' 46%  { 38%  | 25%": over all rounds, by plain miss rate.
 fn weakest_line(profile: &Profile) -> Line<'static> {
     let weakest = profile.weakest(WEAKEST_SHOWN);
@@ -137,7 +169,7 @@ fn weakest_line(profile: &Profile) -> Line<'static> {
 mod tests {
     use super::*;
     use crate::app::test_app;
-    use crate::event::press_at;
+    use crate::event::{Event, press_at};
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use ratatui::crossterm::event::KeyCode;
@@ -161,6 +193,30 @@ mod tests {
         }
     }
 
+    /// Lets 10 seconds pass, so every entrance animation (fade-in,
+    /// count-up) has finished and only the final state is drawn.
+    fn settle(app: &mut App) {
+        app.update(Event::Tick {
+            at: app.now + Duration::from_secs(10),
+        });
+    }
+
+    /// Draws `app` once its animations are over.
+    fn draw_settled(mut app: App, width: u16, height: u16) -> Terminal<TestBackend> {
+        settle(&mut app);
+        draw(&app, width, height)
+    }
+
+    /// The text of row `y`, for checking what a line says.
+    fn row_text(terminal: &Terminal<TestBackend>, y: u16) -> String {
+        let buffer = terminal.backend().buffer();
+        let mut text = String::new();
+        for x in 0..buffer.area.width {
+            text.push_str(buffer[(x, y)].symbol());
+        }
+        text
+    }
+
     /// A test app past the menu, on the Typing screen.
     fn started_app(texts: &[&str]) -> App {
         let mut app = test_app(texts);
@@ -177,7 +233,7 @@ mod tests {
 
     #[test]
     fn menu_with_empty_profile() {
-        insta::assert_snapshot!(draw(&test_app(&[FIND]), 80, 12).backend());
+        insta::assert_snapshot!(draw_settled(test_app(&[FIND]), 80, 16).backend());
     }
 
     #[test]
@@ -188,39 +244,81 @@ mod tests {
         type_text(&mut app, "ls -l x wc -l");
         app.update(press_at(KeyCode::Esc, Instant::now()));
         app.update(press_at(KeyCode::Down, Instant::now()));
-        insta::assert_snapshot!(draw(&app, 80, 12).backend());
+        insta::assert_snapshot!(draw_settled(app, 80, 16).backend());
     }
 
     #[test]
     fn menu_selection_is_styled() {
-        let app = test_app(&[FIND]);
-        let terminal = draw(&app, 80, 12);
+        let terminal = draw_settled(test_app(&[FIND]), 80, 16);
         let buffer = terminal.backend().buffer();
-        // The 64-wide panel starts at column 8 and is 10 rows high, centred
-        // in 12. Inside the border, "> all topics" starts at (9, 2), so its
-        // "a" is at column 11.
-        let selected = &buffer[(11, 2)];
+        // The 64-wide panel starts at column 8, the menu is 14 rows centred
+        // in 16, and the first item is the 6th row of it. Inside the border,
+        // " ▸ all topics" starts at column 9, so its "a" is at column 12.
+        let selected = &buffer[(12, 6)];
         assert_eq!(selected.symbol(), "a");
         assert_eq!(Some(selected.fg), theme::menu_selected().fg);
-        let other = &buffer[(11, 3)];
+        assert_eq!(Some(selected.bg), theme::menu_selected().bg);
+        let other = &buffer[(12, 7)];
         assert_eq!(Some(other.fg), theme::menu_item().fg);
     }
 
     #[test]
+    fn screens_fade_in() {
+        let app = test_app(&[FIND]);
+        // Drawn at the very moment the menu appeared: everything is still
+        // the background color.
+        let terminal = draw(&app, 80, 16);
+        let cell = &terminal.backend().buffer()[(12, 6)];
+        assert_eq!(cell.fg, theme::fade_in(cell.fg, 0.0));
+        assert_ne!(Some(cell.fg), theme::menu_selected().fg);
+    }
+
+    #[test]
+    fn results_count_up_to_the_final_numbers() {
+        let mut app = started_app(&["ls -l | wc -l"]);
+        type_text(&mut app, "ls -l | wc -l");
+        // Results panel: the stats are on the row after the command.
+        let stats_row = |terminal: &Terminal<TestBackend>| -> String {
+            let mut row = String::new();
+            for y in 0..terminal.backend().buffer().area.height {
+                let text = row_text(terminal, y);
+                if text.contains("wpm") {
+                    row = text;
+                }
+            }
+            row
+        };
+        let start = draw(&app, 80, 12);
+        assert!(stats_row(&start).contains("│0 wpm   0% acc"));
+
+        app.update(Event::Tick {
+            at: app.now + Duration::from_millis(200),
+        });
+        let middle = stats_row(&draw(&app, 80, 12));
+        assert!(
+            !middle.contains("│65 wpm") && !middle.contains("│0 wpm"),
+            "{middle}"
+        );
+
+        settle(&mut app);
+        assert!(stats_row(&draw(&app, 80, 12)).contains("│65 wpm   100% acc"));
+    }
+
+    #[test]
     fn typing_screen_snapshot() {
-        insta::assert_snapshot!(draw(&app_with_a_mistake(), 80, 12).backend());
+        insta::assert_snapshot!(draw_settled(app_with_a_mistake(), 80, 12).backend());
     }
 
     #[test]
     fn narrow_typing_screen_wraps_command() {
-        insta::assert_snapshot!(draw(&app_with_a_mistake(), 40, 12).backend());
+        insta::assert_snapshot!(draw_settled(app_with_a_mistake(), 40, 12).backend());
     }
 
     #[test]
     fn results_without_mistakes() {
         let mut app = started_app(&["ls -l | wc -l"]);
         type_text(&mut app, "ls -l | wc -l");
-        insta::assert_snapshot!(draw(&app, 80, 10).backend());
+        insta::assert_snapshot!(draw_settled(app, 80, 12).backend());
     }
 
     #[test]
@@ -232,7 +330,7 @@ mod tests {
             .map(|c| if c == '\'' || c == '{' { 'x' } else { c })
             .collect();
         type_text(&mut app, &typed);
-        insta::assert_snapshot!(draw(&app, 80, 12).backend());
+        insta::assert_snapshot!(draw_settled(app, 80, 14).backend());
     }
 
     #[test]

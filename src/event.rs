@@ -9,8 +9,9 @@ pub enum Event {
     /// A key was pressed at time `at`. The time is read here, once, so
     /// `App::update` never needs the clock and tests can pass fixed times.
     Key { key: KeyEvent, at: Instant },
-    /// Nothing relevant happened before the timeout. The loop redraws anyway.
-    Tick,
+    /// Nothing relevant happened before the timeout. The loop redraws
+    /// anyway, and the time `at` moves the animations forward.
+    Tick { at: Instant },
 }
 
 /// Waits up to `timeout` for input.
@@ -21,14 +22,14 @@ pub enum Event {
 /// no special handling because the loop redraws on every event.
 pub fn next(timeout: Duration) -> Result<Event> {
     if !event::poll(timeout)? {
-        return Ok(Event::Tick);
+        return Ok(Event::Tick { at: Instant::now() });
     }
     match event::read()? {
         event::Event::Key(key) if key.kind == KeyEventKind::Press => Ok(Event::Key {
             key,
             at: Instant::now(),
         }),
-        _ => Ok(Event::Tick),
+        _ => Ok(Event::Tick { at: Instant::now() }),
     }
 }
 

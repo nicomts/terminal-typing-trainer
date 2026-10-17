@@ -1,12 +1,14 @@
 ---
 source: src/ui/mod.rs
-expression: "draw(&app, 80, 12).backend()"
+expression: "draw_settled(app, 80, 14).backend()"
 ---
+"                                                                                "
 "                                                                                "
 "                                                                                "
 "        ╭ results ─────────────────────────────────────────────────────╮        "
 "        │find /var/log -name '*.log' -mtime +7 -exec gzip {} \;        │        "
 "        │58 wpm   94% acc                                              │        "
+"        │━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│        "
 "        │Explain this                                                  │        "
 "        │missed  ' ×2  { ×1                                            │        "
 "        │weakest ' 100%  { 100%                                        │        "

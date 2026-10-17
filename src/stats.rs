@@ -5,7 +5,7 @@
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +30,15 @@ pub fn round_stats(session: &Session) -> RoundStats {
         wpm: wpm(correct_chars(session), elapsed),
         accuracy: accuracy(session.keystrokes(), session.mistakes().len()),
         missed: missed_symbols(session),
+    }
+}
+
+/// Speed so far in a round that may still be going, measured from the
+/// first keystroke to `now`. Zero before the first keystroke.
+pub fn live_wpm(session: &Session, now: Instant) -> f64 {
+    match session.started_at() {
+        Some(start) => wpm(correct_chars(session), now.saturating_duration_since(start)),
+        None => 0.0,
     }
 }
 
@@ -180,7 +189,6 @@ impl Profile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Instant;
 
     /// A session over `target` after typing `typed`, one character every `step`.
     fn finished_session(target: &str, typed: &str, step: Duration) -> Session {
@@ -201,6 +209,22 @@ mod tests {
     #[test]
     fn no_time_means_no_speed() {
         assert_eq!(wpm(5, Duration::ZERO), 0.0);
+    }
+
+    #[test]
+    fn live_wpm_measures_up_to_now() {
+        // 5 correct chars, first one typed at `start`, 6 s later is 10 wpm.
+        let mut session = Session::new("abcdefghij");
+        let start = Instant::now();
+        for c in "abcde".chars() {
+            session.type_char(c, start);
+        }
+        assert_eq!(live_wpm(&session, start + Duration::from_secs(6)), 10.0);
+    }
+
+    #[test]
+    fn live_wpm_is_zero_before_typing() {
+        assert_eq!(live_wpm(&Session::new("ls"), Instant::now()), 0.0);
     }
 
     #[test]

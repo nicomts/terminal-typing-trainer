@@ -33,7 +33,8 @@ corpus/                 # TOML command lists, one file per topic, embedded with 
 src/
 ├── main.rs             # terminal init/restore, panic-safe, runs the loop
 ├── app.rs              # App state, Screen enum (Menu, Typing, Results), update(event)
-├── event.rs            # poll keys + ticks into one Event enum
+├── event.rs            # poll keys + ticks into one Event enum, each with its time
+├── anim.rs             # pure animation math: progress, easing, phase, pulse
 ├── session.rs          # one typing round: target text, typed chars, start/end time
 ├── stats.rs            # WPM, accuracy, per-symbol error counts
 ├── corpus.rs           # parse embedded TOML, weighted pick by weak symbols
@@ -42,6 +43,7 @@ src/
 └── ui/
     ├── mod.rs          # top-level layout, dispatches by Screen
     ├── menu.rs
+    ├── logo.rs         # block-letter logo glyphs
     ├── typing.rs
     └── results.rs
 ```
@@ -49,6 +51,10 @@ src/
 Pattern: Elm-style. State lives in `App`. `update` changes state and never touches
 the terminal. `ui::render` reads state and never mutates it. This keeps
 `session.rs`, `stats.rs` and `corpus.rs` pure and unit-testable.
+
+Animations follow the same rule: `render` never reads the clock. Every `Event`
+carries its time, `update` stores it in `App::now` (plus moments like
+`screen_since`), and `render` computes animation progress with `anim.rs`.
 
 Keep it shallow: plain structs, enums and functions. No traits or generics unless
 there are already two concrete implementations that need them.

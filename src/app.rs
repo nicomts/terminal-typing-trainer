@@ -1,6 +1,10 @@
 //! App state and the `update` function that changes it.
 //!
 //! `update` never touches the terminal; `ui::render` only reads this state.
+//!
+//! Animations need to know the time, but `render` must not read the clock,
+//! so every event carries its time and `update` stores it in `now`, next to
+//! the moments animations measure from (`screen_since`, `mistake_at`, ...).
 
 use std::time::Instant;
 
@@ -26,7 +30,11 @@ pub enum Screen {
         selected: usize,
     },
     Typing,
-    Results(RoundStats),
+    /// `new_best` is true when this round beat the best wpm of earlier rounds.
+    Results {
+        stats: RoundStats,
+        new_best: bool,
+    },
 }
 
 pub struct App {
@@ -38,6 +46,15 @@ pub struct App {
     /// Set when `profile` has changed. `update` never writes files: the main
     /// loop sees this flag, saves, and clears it.
     pub profile_changed: bool,
+    /// Time of the latest event. The "current time" for everything drawn.
+    pub now: Instant,
+    /// When the current screen appeared, for its fade-in and count-ups.
+    pub screen_since: Instant,
+    /// Time of the latest key press, so the cursor can stay solid while
+    /// the user types and only blink when they pause.
+    pub last_key_at: Option<Instant>,
+    /// Time of the latest mistyped key, for the border flash.
+    pub mistake_at: Option<Instant>,
     commands: Vec<Command>,
     /// Index into `commands` of the command being typed. Always valid,
     /// because `commands` is never empty and never changes.
@@ -49,7 +66,13 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(commands: Vec<Command>, profile: Profile, mut rng: StdRng) -> Result<Self> {
+    /// `now` is the start time. Passed in, like `rng`, so tests control it.
+    pub fn new(
+        commands: Vec<Command>,
+        profile: Profile,
+        mut rng: StdRng,
+        now: Instant,
+    ) -> Result<Self> {
         if commands.is_empty() {
             bail!("cannot start without any commands");
         }
@@ -63,6 +86,10 @@ impl App {
             should_quit: false,
             profile,
             profile_changed: false,
+            now,
+            screen_since: now,
+            last_key_at: None,
+            mistake_at: None,
             commands,
             current,
             topic: None,
@@ -77,15 +104,19 @@ impl App {
 
     pub fn update(&mut self, event: Event) {
         match event {
-            Event::Key { key, at } => self.handle_key(key, at),
-            Event::Tick => {}
+            Event::Key { key, at } => {
+                self.now = at;
+                self.last_key_at = Some(at);
+                self.handle_key(key, at);
+            }
+            Event::Tick { at } => self.now = at,
         }
     }
 
     fn handle_key(&mut self, key: KeyEvent, at: Instant) {
         // `selected` is a `usize`, which is `Copy`, so matching copies it out
-        // instead of borrowing `self.screen`. `_` matches the stats without
-        // borrowing them. Either way `self` is free to change inside the arms.
+        // instead of borrowing `self.screen`. `{ .. }` matches the Results
+        // fields without borrowing them. Either way `self` is free to change inside the arms.
         match self.screen {
             Screen::Menu { selected } => self.handle_menu_key(key, selected),
             Screen::Typing => {
@@ -96,7 +127,7 @@ impl App {
                     self.handle_typing_key(key, at);
                 }
             }
-            Screen::Results(_) => match key.code {
+            Screen::Results { .. } => match key.code {
                 KeyCode::Enter => self.start_round(),
                 KeyCode::Esc => self.open_menu(),
                 _ => {}
@@ -127,9 +158,17 @@ impl App {
 
     /// Shows the menu with the current topic selected.
     fn open_menu(&mut self) {
-        self.screen = Screen::Menu {
+        self.set_screen(Screen::Menu {
             selected: row_for_topic(self.topic),
-        };
+        });
+    }
+
+    /// Switches to another screen and restarts its entrance animation.
+    /// Moving the menu selection doesn't go through here: it's the same
+    /// screen, so it shouldn't fade in again.
+    fn set_screen(&mut self, screen: Screen) {
+        self.screen = screen;
+        self.screen_since = self.now;
     }
 
     fn handle_typing_key(&mut self, key: KeyEvent, at: Instant) {
@@ -141,17 +180,28 @@ impl App {
 
         match key.code {
             KeyCode::Char(c) if !is_shortcut => {
+                let mistakes_before = self.session.mistakes().len();
                 self.session.type_char(c, at);
+                if self.session.mistakes().len() > mistakes_before {
+                    self.mistake_at = Some(at);
+                }
                 if self.session.is_finished() {
-                    let stats = stats::round_stats(&self.session);
-                    self.profile.record_round(&self.session, &stats);
-                    self.profile_changed = true;
-                    self.screen = Screen::Results(stats);
+                    self.finish_round();
                 }
             }
             KeyCode::Backspace => self.session.backspace(),
             _ => {}
         }
+    }
+
+    fn finish_round(&mut self) {
+        let stats = stats::round_stats(&self.session);
+        // Compared before `record_round`, which raises `best_wpm`. The very
+        // first round has nothing to beat, so it isn't called a new best.
+        let new_best = self.profile.rounds > 0 && stats.wpm > self.profile.best_wpm;
+        self.profile.record_round(&self.session, &stats);
+        self.profile_changed = true;
+        self.set_screen(Screen::Results { stats, new_best });
     }
 
     /// Starts a new round in the chosen topic with a different command,
@@ -167,7 +217,8 @@ impl App {
             &mut self.rng,
         );
         self.session = Session::new(&self.commands[self.current].text);
-        self.screen = Screen::Typing;
+        self.mistake_at = None;
+        self.set_screen(Screen::Typing);
     }
 }
 
@@ -210,7 +261,13 @@ pub fn test_app(texts: &[&str]) -> App {
             topic: Topic::Files,
         })
         .collect();
-    App::new(commands, Profile::default(), StdRng::seed_from_u64(7)).unwrap()
+    App::new(
+        commands,
+        Profile::default(),
+        StdRng::seed_from_u64(7),
+        Instant::now(),
+    )
+    .unwrap()
 }
 
 #[cfg(test)]
@@ -243,7 +300,7 @@ mod tests {
     }
 
     fn is_results(app: &App) -> bool {
-        matches!(app.screen, Screen::Results(_))
+        matches!(app.screen, Screen::Results { .. })
     }
 
     fn is_typing(app: &App) -> bool {
@@ -261,7 +318,8 @@ mod tests {
     #[test]
     fn empty_corpus_is_an_error() {
         use rand::SeedableRng;
-        assert!(App::new(Vec::new(), Profile::default(), StdRng::seed_from_u64(7)).is_err());
+        let rng = StdRng::seed_from_u64(7);
+        assert!(App::new(Vec::new(), Profile::default(), rng, Instant::now()).is_err());
     }
 
     #[test]
@@ -449,5 +507,84 @@ mod tests {
         assert!(app.session.typed().is_empty());
         let target: String = app.session.target().iter().collect();
         assert_eq!(target, app.command().text);
+    }
+
+    #[test]
+    fn events_move_the_clock() {
+        let mut app = test_app(&["ls"]);
+        let later = app.now + std::time::Duration::from_secs(3);
+        app.update(Event::Tick { at: later });
+        assert_eq!(app.now, later);
+    }
+
+    #[test]
+    fn a_new_screen_restarts_its_animation() {
+        let mut app = test_app(&["ls"]);
+        let at = app.now + std::time::Duration::from_secs(2);
+        app.update(press_at(KeyCode::Enter, at));
+        assert!(is_typing(&app));
+        assert_eq!(app.screen_since, at);
+    }
+
+    #[test]
+    fn moving_the_menu_selection_does_not_restart_it() {
+        let mut app = test_app(&["ls"]);
+        let since = app.screen_since;
+        let at = app.now + std::time::Duration::from_secs(2);
+        app.update(press_at(KeyCode::Down, at));
+        assert_eq!(app.screen_since, since);
+    }
+
+    #[test]
+    fn a_wrong_key_sets_mistake_at_and_a_right_one_does_not() {
+        let mut app = started_app(&["ls"]);
+        app.update(press(KeyCode::Char('l')));
+        assert_eq!(app.mistake_at, None);
+        let at = Instant::now();
+        app.update(press_at(KeyCode::Char('x'), at));
+        assert_eq!(app.mistake_at, Some(at));
+    }
+
+    /// Types `text` one key per `step` from `start`, as a round of known speed.
+    fn type_timed(app: &mut App, text: &str, start: Instant, step: std::time::Duration) {
+        let mut at = start;
+        for c in text.chars() {
+            app.update(press_at(KeyCode::Char(c), at));
+            at += step;
+        }
+    }
+
+    fn new_best(app: &App) -> bool {
+        matches!(app.screen, Screen::Results { new_best: true, .. })
+    }
+
+    #[test]
+    fn first_round_is_not_a_new_best_but_a_faster_one_is() {
+        use std::time::Duration;
+        let mut app = started_app(&["abcdef", "ghijkl"]);
+        let start = Instant::now();
+
+        let text = app.command().text.clone();
+        type_timed(&mut app, &text, start, Duration::from_millis(500));
+        assert!(!new_best(&app));
+
+        app.update(press(KeyCode::Enter));
+        let text = app.command().text.clone();
+        type_timed(&mut app, &text, start, Duration::from_millis(100));
+        assert!(new_best(&app));
+    }
+
+    #[test]
+    fn a_slower_round_is_not_a_new_best() {
+        use std::time::Duration;
+        let mut app = started_app(&["abcdef", "ghijkl"]);
+        let start = Instant::now();
+
+        let text = app.command().text.clone();
+        type_timed(&mut app, &text, start, Duration::from_millis(100));
+        app.update(press(KeyCode::Enter));
+        let text = app.command().text.clone();
+        type_timed(&mut app, &text, start, Duration::from_millis(500));
+        assert!(!new_best(&app));
     }
 }

@@ -1,3 +1,4 @@
+mod anim;
 mod app;
 mod corpus;
 mod event;
@@ -8,15 +9,17 @@ mod theme;
 mod ui;
 
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use color_eyre::Result;
 use ratatui::DefaultTerminal;
 
 use crate::app::App;
 
-/// How long to wait for a key before redrawing anyway.
-const TICK_RATE: Duration = Duration::from_millis(100);
+/// How long to wait for a key before redrawing anyway. 33 ms is about 30
+/// frames a second, enough for smooth animations. ratatui only sends the
+/// cells that changed to the terminal, so a still screen costs very little.
+const TICK_RATE: Duration = Duration::from_millis(33);
 
 fn main() -> Result<()> {
     // Install color-eyre first: `ratatui::init` then wraps its panic hook,
@@ -26,7 +29,7 @@ fn main() -> Result<()> {
     let commands = corpus::load()?;
     let stats_file = storage::data_file()?;
     let profile = storage::load(&stats_file)?;
-    let app = App::new(commands, profile, rand::make_rng())?;
+    let app = App::new(commands, profile, rand::make_rng(), Instant::now())?;
 
     let mut terminal = ratatui::init();
     let result = run(&mut terminal, app, &stats_file);
