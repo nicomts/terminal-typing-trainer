@@ -14,8 +14,9 @@ underneath:
 
 ## Features
 
-- **31 real commands** in three topics: files (`find`, `xargs`, `tar`, permissions),
-  text (`grep`, `sed`, `awk`, `sort`) and shell (redirection, `$()`, `&&`/`||`, loops).
+- **41 real commands** in four topics: files (`find`, `xargs`, `tar`, permissions),
+  text (`grep`, `sed`, `awk`, `sort`), shell (redirection, `$()`, `&&`/`||`, loops)
+  and pentest (`nmap`, `ss`, `openssl`, `tcpdump`: recon and auditing your own hosts).
 - **Live feedback while you type:** speed and time in the panel border, a progress
   bar, and every mistake marked in place with the character you should have typed.
   The border flashes when you hit a wrong key.

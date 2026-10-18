@@ -26,24 +26,26 @@ pub enum Topic {
     Files,
     Text,
     Shell,
+    Pentest,
 }
 
 impl Topic {
     /// Every topic, in the order the menu lists them.
-    pub const ALL: [Topic; 3] = [Topic::Files, Topic::Text, Topic::Shell];
+    pub const ALL: [Topic; 4] = [Topic::Files, Topic::Text, Topic::Shell, Topic::Pentest];
 
     pub fn name(self) -> &'static str {
         match self {
             Topic::Files => "files",
             Topic::Text => "text",
             Topic::Shell => "shell",
+            Topic::Pentest => "pentest",
         }
     }
 }
 
 /// Every corpus file, embedded at compile time, with the topic of its
 /// commands. The file name is only used in error messages.
-const FILES: [(Topic, &str, &str); 3] = [
+const FILES: [(Topic, &str, &str); 4] = [
     (
         Topic::Files,
         "files.toml",
@@ -58,6 +60,11 @@ const FILES: [(Topic, &str, &str); 3] = [
         Topic::Shell,
         "shell.toml",
         include_str!("../corpus/shell.toml"),
+    ),
+    (
+        Topic::Pentest,
+        "pentest.toml",
+        include_str!("../corpus/pentest.toml"),
     ),
 ];
 

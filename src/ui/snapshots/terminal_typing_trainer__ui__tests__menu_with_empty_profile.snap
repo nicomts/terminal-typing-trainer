@@ -1,6 +1,5 @@
 ---
 source: src/ui/mod.rs
-assertion_line: 241
 expression: "draw_settled(test_app(&[FIND]), 80, 16).backend()"
 ---
 "                                                                                "
@@ -13,9 +12,9 @@ expression: "draw_settled(test_app(&[FIND]), 80, 16).backend()"
 "        │   files                                                      │        "
 "        │   text                                                       │        "
 "        │   shell                                                      │        "
+"        │   pentest                                                    │        "
 "        │                                                              │        "
 "        │   no rounds yet                                              │        "
 "        │   no weak symbols yet                                        │        "
 "        ╰──────────────────────────────────────────────────────────────╯        "
 "        ↑↓ choose · enter start · esc quit                                      "
-"                                                                                "
