@@ -10,13 +10,7 @@ shell prompt.
 While you type, the panel shows your live speed and time, with a progress bar
 underneath:
 
-```
-╭ type ───────────────────────────────────────── 42 wpm · 0:07 ╮
-│ find /var/log -name '*.log' -mtime +7 -exec gzip {} \;       │
-╰──────────────────────────────────────────────────────────────╯
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-esc menu
-```
+![Typing a find | xargs command, with live wpm and time in the panel border and a progress bar below](docs/type.jpg)
 
 ## Features
 
