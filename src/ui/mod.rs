@@ -4,6 +4,7 @@
 //! "weakest symbols" line. They are private here, yet the screen modules can
 //! call them: a child module can see everything in its parent module.
 
+mod help;
 mod logo;
 mod menu;
 mod results;
@@ -43,6 +44,12 @@ pub fn render(frame: &mut Frame, app: &App) {
     // The width comes first because the height depends on it:
     // a narrower panel wraps the command onto more lines.
     let width = content_width(frame.area().width);
+
+    // Help is drawn instead of the screen, which comes back when it closes.
+    if app.show_help {
+        help::render(frame, frame.area(), width);
+        return;
+    }
 
     match &app.screen {
         Screen::Menu { selected } => {
@@ -310,6 +317,13 @@ mod tests {
         assert_eq!(Some(selected.bg), theme::menu_selected().bg);
         let other = &buffer[(12, y + 1)];
         assert_eq!(Some(other.fg), theme::menu_item().fg);
+    }
+
+    #[test]
+    fn help_screen() {
+        let mut app = test_app(&[FIND]);
+        app.update(press_at(KeyCode::Char('?'), Instant::now()));
+        insta::assert_snapshot!(draw_settled(app, 80, MENU_HEIGHT).backend());
     }
 
     #[test]

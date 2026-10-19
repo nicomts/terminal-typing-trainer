@@ -71,7 +71,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, selected: usize) {
     frame.render_widget(panel, panel_area);
 
     frame.render_widget(
-        Span::styled("↑↓ choose · enter start · esc quit", theme::hint()),
+        Span::styled("↑↓ choose · enter start · ? help · esc quit", theme::hint()),
         hint_area,
     );
 }

@@ -55,6 +55,8 @@ pub struct App {
     pub last_key_at: Option<Instant>,
     /// Time of the latest mistyped key, for the border flash.
     pub mistake_at: Option<Instant>,
+    /// Help is showing, in place of the Menu or Results screen.
+    pub show_help: bool,
     commands: Vec<Command>,
     /// Index into `commands` of the command being typed. Always valid,
     /// because `commands` is never empty and never changes.
@@ -90,6 +92,7 @@ impl App {
             screen_since: now,
             last_key_at: None,
             mistake_at: None,
+            show_help: false,
             commands,
             current,
             topic: None,
@@ -114,6 +117,11 @@ impl App {
     }
 
     fn handle_key(&mut self, key: KeyEvent, at: Instant) {
+        // While help is open, any key just closes it.
+        if self.show_help {
+            self.show_help = false;
+            return;
+        }
         // `selected` is a `usize`, which is `Copy`, so matching copies it out
         // instead of borrowing `self.screen`. `{ .. }` matches the Results
         // fields without borrowing them. Either way `self` is free to change inside the arms.
@@ -130,6 +138,7 @@ impl App {
             Screen::Results { .. } => match key.code {
                 KeyCode::Enter => self.start_round(),
                 KeyCode::Tab => self.begin_round(),
+                KeyCode::Char('?') => self.show_help = true,
                 KeyCode::Esc => self.open_menu(),
                 _ => {}
             },
@@ -139,6 +148,7 @@ impl App {
     fn handle_menu_key(&mut self, key: KeyEvent, selected: usize) {
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => self.should_quit = true,
+            KeyCode::Char('?') => self.show_help = true,
             KeyCode::Up | KeyCode::Char('k') => {
                 self.screen = Screen::Menu {
                     selected: selected.saturating_sub(1),
@@ -526,6 +536,44 @@ mod tests {
         assert!(is_typing(&app));
         assert_eq!(app.command().text, first);
         assert!(app.session.typed().is_empty());
+    }
+
+    #[test]
+    fn question_mark_opens_help_and_any_key_closes_it() {
+        let mut app = test_app(&["ls"]);
+        app.update(press(KeyCode::Char('?')));
+        assert!(app.show_help);
+
+        // The closing key does nothing else: the selection stays put.
+        app.update(press(KeyCode::Down));
+        assert!(!app.show_help);
+        assert_eq!(menu_row(&app), Some(0));
+    }
+
+    #[test]
+    fn esc_closes_help_without_quitting() {
+        let mut app = test_app(&["ls"]);
+        app.update(press(KeyCode::Char('?')));
+        app.update(press(KeyCode::Esc));
+        assert!(!app.show_help);
+        assert!(!app.should_quit);
+    }
+
+    #[test]
+    fn question_mark_opens_help_on_results() {
+        let mut app = started_app(&["ls"]);
+        type_text(&mut app, "ls");
+        app.update(press(KeyCode::Char('?')));
+        assert!(app.show_help);
+        assert!(is_results(&app));
+    }
+
+    #[test]
+    fn question_mark_while_typing_is_typed() {
+        let mut app = started_app(&["ls"]);
+        app.update(press(KeyCode::Char('?')));
+        assert!(!app.show_help);
+        assert_eq!(app.session.typed(), &['?']);
     }
 
     #[test]
