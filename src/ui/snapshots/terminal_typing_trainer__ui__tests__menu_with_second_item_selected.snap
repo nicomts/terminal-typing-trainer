@@ -1,7 +1,10 @@
 ---
 source: src/ui/mod.rs
-expression: "draw_settled(app, 80, 16).backend()"
+expression: "draw_settled(app, 80, MENU_HEIGHT).backend()"
 ---
+"                                                                                "
+"                                                                                "
+"                                                                                "
 "                                                                                "
 "                  ▀█▀ █ █ █▀█ █▀▀   ▀█▀ █▀█ █▀█ ▀█▀ █▀▄ █▀▀ █▀█                 "
 "                   █  ▀█▀ █▀▀ █▀▀    █  █▀▄ █▀█  █  █ █ █▀▀ █▀▄                 "
@@ -15,6 +18,11 @@ expression: "draw_settled(app, 80, 16).backend()"
 "        │   pentest                                                    │        "
 "        │                                                              │        "
 "        │   1 round   best 60 wpm                                      │        "
+"        │   last 1  ▄  avg 60 wpm  92% acc                             │        "
 "        │   weakest | 100%                                             │        "
 "        ╰──────────────────────────────────────────────────────────────╯        "
 "        ↑↓ choose · enter start · esc quit                                      "
+"                                                                                "
+"                                                                                "
+"                                                                                "
+"                                                                                "

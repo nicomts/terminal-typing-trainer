@@ -1,7 +1,10 @@
 ---
 source: src/ui/mod.rs
-expression: "draw_settled(test_app(&[FIND]), 80, 16).backend()"
+expression: "draw_settled(test_app(&[FIND]), 80, MENU_HEIGHT).backend()"
 ---
+"                                                                                "
+"                                                                                "
+"                                                                                "
 "                                                                                "
 "                  ▀█▀ █ █ █▀█ █▀▀   ▀█▀ █▀█ █▀█ ▀█▀ █▀▄ █▀▀ █▀█                 "
 "                   █  ▀█▀ █▀▀ █▀▀    █  █▀▄ █▀█  █  █ █ █▀▀ █▀▄                 "
@@ -15,6 +18,11 @@ expression: "draw_settled(test_app(&[FIND]), 80, 16).backend()"
 "        │   pentest                                                    │        "
 "        │                                                              │        "
 "        │   no rounds yet                                              │        "
+"        │   no history yet                                             │        "
 "        │   no weak symbols yet                                        │        "
 "        ╰──────────────────────────────────────────────────────────────╯        "
 "        ↑↓ choose · enter start · esc quit                                      "
+"                                                                                "
+"                                                                                "
+"                                                                                "
+"                                                                                "

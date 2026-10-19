@@ -153,7 +153,34 @@ fn bar_line(fraction: f64, width: usize) -> Line<'static> {
     ])
 }
 
-/// "weakest  ' 46%  { 38%  | 25%": over all rounds, by plain miss rate.
+/// One block character per value, from ▁ for the lowest to █ for the
+/// highest, e.g. "▃▄▄▅▃▆▇▆". If every value is the same, all are ▄.
+fn sparkline(values: &[f64]) -> String {
+    const LEVELS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    const MIDDLE: usize = 3;
+
+    let mut min = f64::INFINITY;
+    let mut max = f64::NEG_INFINITY;
+    for &value in values {
+        min = min.min(value);
+        max = max.max(value);
+    }
+    let range = max - min;
+
+    let mut line = String::new();
+    for &value in values {
+        let level = if range > 0.0 {
+            // Between 0.0 and 7.0, so `as usize` can't overflow.
+            ((value - min) / range * (LEVELS.len() - 1) as f64).round() as usize
+        } else {
+            MIDDLE
+        };
+        line.push(LEVELS[level]);
+    }
+    line
+}
+
+/// "weakest  ' 46%  { 38%  | 25%": over recent attempts, by plain miss rate.
 fn weakest_line(profile: &Profile) -> Line<'static> {
     let weakest = profile.weakest(WEAKEST_SHOWN);
     if weakest.is_empty() {
@@ -225,6 +252,20 @@ mod tests {
         text
     }
 
+    /// Terminal rows for menu tests: enough for the whole menu.
+    const MENU_HEIGHT: u16 = 24;
+
+    /// The row of the "all topics" menu item. Found by its text, so tests
+    /// don't break when rows are added above it.
+    fn first_item_row(terminal: &Terminal<TestBackend>) -> u16 {
+        for y in 0..terminal.backend().buffer().area.height {
+            if row_text(terminal, y).contains("all topics") {
+                return y;
+            }
+        }
+        panic!("no \"all topics\" row on screen");
+    }
+
     /// A test app past the menu, on the Typing screen.
     fn started_app(texts: &[&str]) -> App {
         let mut app = test_app(texts);
@@ -241,7 +282,7 @@ mod tests {
 
     #[test]
     fn menu_with_empty_profile() {
-        insta::assert_snapshot!(draw_settled(test_app(&[FIND]), 80, 16).backend());
+        insta::assert_snapshot!(draw_settled(test_app(&[FIND]), 80, MENU_HEIGHT).backend());
     }
 
     #[test]
@@ -252,22 +293,22 @@ mod tests {
         type_text(&mut app, "ls -l x wc -l");
         app.update(press_at(KeyCode::Esc, Instant::now()));
         app.update(press_at(KeyCode::Down, Instant::now()));
-        insta::assert_snapshot!(draw_settled(app, 80, 16).backend());
+        insta::assert_snapshot!(draw_settled(app, 80, MENU_HEIGHT).backend());
     }
 
     #[test]
     fn menu_selection_is_styled() {
-        let terminal = draw_settled(test_app(&[FIND]), 80, 16);
+        let terminal = draw_settled(test_app(&[FIND]), 80, MENU_HEIGHT);
+        let y = first_item_row(&terminal);
         let buffer = terminal.backend().buffer();
-        // The 64-wide panel starts at column 8, the menu is 14 rows centred
-        // in 16, and the first item is the 6th row of it. After the border
-        // and one column of padding, "▸ all topics" starts at column 10, so
-        // its "a" is at column 12.
-        let selected = &buffer[(12, 6)];
+        // The 64-wide panel starts at column 8. After the border and one
+        // column of padding, "▸ all topics" starts at column 10, so its "a"
+        // is at column 12.
+        let selected = &buffer[(12, y)];
         assert_eq!(selected.symbol(), "a");
         assert_eq!(Some(selected.fg), theme::menu_selected().fg);
         assert_eq!(Some(selected.bg), theme::menu_selected().bg);
-        let other = &buffer[(12, 7)];
+        let other = &buffer[(12, y + 1)];
         assert_eq!(Some(other.fg), theme::menu_item().fg);
     }
 
@@ -276,8 +317,8 @@ mod tests {
         let app = test_app(&[FIND]);
         // Drawn at the very moment the menu appeared: everything is still
         // the background color.
-        let terminal = draw(&app, 80, 16);
-        let cell = &terminal.backend().buffer()[(12, 6)];
+        let terminal = draw(&app, 80, MENU_HEIGHT);
+        let cell = &terminal.backend().buffer()[(12, first_item_row(&terminal))];
         assert_eq!(cell.fg, theme::fade_in(cell.fg, 0.0));
         assert_ne!(Some(cell.fg), theme::menu_selected().fg);
     }
@@ -374,6 +415,17 @@ mod tests {
             panic!("expected the Results screen");
         };
         assert_only_symbols_marked(&results::missed_line(stats), &['{', '|']);
+    }
+
+    #[test]
+    fn sparkline_spans_lowest_to_highest() {
+        assert_eq!(sparkline(&[10.0, 40.0, 70.0]), "▁▅█");
+    }
+
+    #[test]
+    fn sparkline_of_equal_values_is_flat() {
+        assert_eq!(sparkline(&[50.0, 50.0]), "▄▄");
+        assert_eq!(sparkline(&[]), "");
     }
 
     #[test]

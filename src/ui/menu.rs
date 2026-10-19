@@ -7,15 +7,17 @@ use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
-use super::{BORDER_ROWS, HINT_ROWS, inner_width, logo, weakest_line};
+use super::{BORDER_ROWS, HINT_ROWS, inner_width, logo, sparkline, weakest_line};
 use crate::anim;
 use crate::app::{App, MENU_ROWS, topic_for_row};
 use crate::stats::Profile;
 use crate::theme;
 
-/// Rows inside the panel under the menu: a blank separator, the totals and
-/// the weakest symbols.
-const SUMMARY_ROWS: u16 = 3;
+/// Rows inside the panel under the menu: a blank separator, the totals,
+/// the recent trend and the weakest symbols.
+const SUMMARY_ROWS: u16 = 4;
+/// How many of the latest rounds the trend line shows.
+const TREND_ROUNDS: usize = 20;
 /// Empty rows between the logo and the panel.
 const LOGO_GAP: u16 = 1;
 /// The shimmer crosses the logo once per period...
@@ -62,6 +64,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, selected: usize) {
     }
     lines.push(Line::default());
     lines.push(indented(totals_line(&app.profile)));
+    lines.push(indented(trend_line(&app.profile)));
     lines.push(indented(weakest_line(&app.profile)));
 
     let panel = Paragraph::new(lines).block(theme::panel_block(true).title(" choose a topic "));
@@ -150,6 +153,37 @@ fn totals_line(profile: &Profile) -> Line<'static> {
         Span::styled(rounds_label, theme::stat_label()),
         Span::styled(format!("{:.0}", profile.best_wpm), theme::stat_value()),
         Span::styled(" wpm", theme::stat_label()),
+    ])
+}
+
+/// "last 20  ▃▄▄▅▃▆▇▆  avg 52 wpm  96% acc", over the latest rounds, or
+/// "no history yet".
+fn trend_line(profile: &Profile) -> Line<'static> {
+    let history = &profile.history;
+    if history.is_empty() {
+        return Line::styled("no history yet", theme::hint());
+    }
+    // The last `TREND_ROUNDS` entries, or all of them if there are fewer.
+    let recent = &history[history.len().saturating_sub(TREND_ROUNDS)..];
+
+    let mut wpms = Vec::with_capacity(recent.len());
+    let mut accuracy_sum = 0.0;
+    for round in recent {
+        wpms.push(round.wpm);
+        accuracy_sum += round.accuracy;
+    }
+    let count = recent.len() as f64;
+    let avg_wpm = wpms.iter().sum::<f64>() / count;
+    let avg_accuracy = accuracy_sum / count;
+
+    Line::from(vec![
+        Span::styled(format!("last {}  ", recent.len()), theme::stat_label()),
+        Span::styled(sparkline(&wpms), theme::stat_value()),
+        Span::styled("  avg ", theme::stat_label()),
+        Span::styled(format!("{avg_wpm:.0}"), theme::stat_value()),
+        Span::styled(" wpm  ", theme::stat_label()),
+        Span::styled(format!("{avg_accuracy:.0}%"), theme::stat_value()),
+        Span::styled(" acc", theme::stat_label()),
     ])
 }
 

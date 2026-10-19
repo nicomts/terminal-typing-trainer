@@ -15,6 +15,8 @@ use crate::session::Session;
 const CHARS_PER_WORD: f64 = 5.0;
 /// A symbol's counts are halved when it has been seen this many times.
 const HALVE_AT: u32 = 40;
+/// How many recent rounds the profile keeps for the trend on the menu.
+const HISTORY_LEN: usize = 50;
 
 #[derive(Debug, PartialEq)]
 pub struct RoundStats {
@@ -110,6 +112,15 @@ pub struct Profile {
     pub best_wpm: f64,
     /// Per symbol. A BTreeMap keeps the JSON file in a stable order.
     pub symbols: BTreeMap<char, SymbolRecord>,
+    /// The latest rounds, oldest first, at most `HISTORY_LEN` of them.
+    pub history: Vec<RoundSummary>,
+}
+
+/// One finished round, as kept in the history.
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct RoundSummary {
+    pub wpm: f64,
+    pub accuracy: f64,
 }
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -149,6 +160,16 @@ impl Profile {
         self.rounds += 1;
         if stats.wpm > self.best_wpm {
             self.best_wpm = stats.wpm;
+        }
+
+        self.history.push(RoundSummary {
+            wpm: stats.wpm,
+            accuracy: stats.accuracy,
+        });
+        if self.history.len() > HISTORY_LEN {
+            // Drops the oldest round. Removing from the front shifts the
+            // other 50, which is nothing at this size.
+            self.history.remove(0);
         }
 
         let missed = session.missed_positions();
@@ -330,6 +351,23 @@ mod tests {
             record(&mut profile, "a | b", "a | b");
         }
         assert!(profile.weakness('|') < 0.5);
+    }
+
+    #[test]
+    fn history_keeps_only_the_latest_rounds() {
+        let mut profile = Profile::default();
+        for _ in 0..HISTORY_LEN + 5 {
+            record(&mut profile, "ab", "ab");
+        }
+        assert_eq!(profile.history.len(), HISTORY_LEN);
+        assert_eq!(profile.rounds as usize, HISTORY_LEN + 5);
+    }
+
+    #[test]
+    fn a_file_without_history_still_loads() {
+        let profile: Profile = serde_json::from_str(r#"{"rounds": 3}"#).unwrap();
+        assert_eq!(profile.rounds, 3);
+        assert!(profile.history.is_empty());
     }
 
     #[test]
