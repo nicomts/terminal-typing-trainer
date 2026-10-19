@@ -5,12 +5,21 @@ drills real Linux sysadmin commands instead of English words. These are the
 commands full of `| & ; > >> 2>&1 $() {} [] ^ ~ \ ' "` that slow you down at a
 shell prompt.
 
-![The menu: the TYPE TRAINER logo, the topics and your stats](docs/screenshot.jpg)
+![The menu: the TYPE TRAINER logo, eight topics, your rounds and best wpm, a trend of your last 20 rounds and your weakest symbols](docs/menu.png)
 
 While you type, the panel shows your live speed and time, with a progress bar
-underneath:
+underneath. A wrong key flashes the border and is marked in place:
 
-![Typing a find | xargs command, with live wpm and time in the panel border and a progress bar below](docs/type.jpg)
+![Typing ./backup.sh >> /var/log/backup.log 2>&1, fixing a typo on the &, then the results](docs/typing.gif)
+
+After each round you get your speed and accuracy, what the command does, the
+symbols you missed and your weakest symbols overall:
+
+![Results of a cron line: 61 wpm, 96% accuracy, a new best, the explanation, missed & and \[, and the weakest symbols](docs/results.png)
+
+Press `?` on the menu or results screen for help:
+
+![The help screen: how the trainer works and the keys for each screen](docs/help.png)
 
 ## Features
 
@@ -100,6 +109,17 @@ cargo fmt
 cargo clippy --all-targets -- -D warnings
 cargo test
 ```
+
+The README images are recorded with [vhs](https://github.com/charmbracelet/vhs)
+(`brew install vhs`). To make them again after a UI change:
+
+```sh
+vhs docs/screens.tape   # docs/menu.png, results.png, help.png
+vhs docs/typing.tape    # docs/typing.gif
+```
+
+They use the demo stats in `docs/demo/stats.json` and set `TYPE_TRAINER_SEED`, which
+makes the app pick the same commands every time. Your own stats aren't touched.
 
 The screens are covered by [insta](https://insta.rs) snapshot tests. After a layout
 change, review the new snapshots with `cargo insta review` (install it with
