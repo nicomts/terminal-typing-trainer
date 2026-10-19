@@ -1,0 +1,52 @@
+# Containers: docker run, exec, inspect, logs and compose.
+# Display text only. These commands are never executed.
+
+[[command]]
+text = '''docker run -d --name web -p 8080:80 -v "$PWD/html:/usr/share/nginx/html:ro" nginx'''
+explain = "Serve a local folder with nginx on port 8080"
+tags = ["run", "volume", "port"]
+
+[[command]]
+text = '''docker ps --format '{{.Names}}\t{{.Status}}\t{{.Ports}}''''
+explain = "Running containers as name, status, ports"
+tags = ["ps", "format"]
+
+[[command]]
+text = '''docker inspect -f '{{.NetworkSettings.IPAddress}}' web'''
+explain = "IP address of the web container"
+tags = ["inspect", "format"]
+
+[[command]]
+text = '''docker exec -it web sh -c 'ls -la /etc/nginx/conf.d/''''
+explain = "List nginx configs inside the container"
+tags = ["exec", "quoting"]
+
+[[command]]
+text = '''docker logs --since 10m -f web 2>&1 | grep -i error'''
+explain = "Follow recent errors from the web container"
+tags = ["logs", "redirect", "pipe"]
+
+[[command]]
+text = '''docker rm -f $(docker ps -aq --filter status=exited)'''
+explain = "Remove every stopped container"
+tags = ["rm", "subshell", "filter"]
+
+[[command]]
+text = '''docker images --filter dangling=true -q | xargs -r docker rmi'''
+explain = "Delete untagged images"
+tags = ["images", "pipe", "xargs"]
+
+[[command]]
+text = '''docker build -t app:${GIT_SHA:-dev} --build-arg ENV=prod .'''
+explain = "Build an image tagged with the commit, or dev"
+tags = ["build", "variable"]
+
+[[command]]
+text = '''docker compose -f compose.yml up -d --build && docker compose logs -f'''
+explain = "Rebuild and start the stack, then follow logs"
+tags = ["compose", "and-or"]
+
+[[command]]
+text = '''docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}"'''
+explain = "Memory use of each container, once"
+tags = ["stats", "format"]

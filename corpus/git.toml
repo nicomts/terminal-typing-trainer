@@ -1,0 +1,52 @@
+# Git: history, formatting, stashes, rebases and plumbing.
+# Display text only. These commands are never executed.
+
+[[command]]
+text = '''git log --pretty=format:'%h %an %ar: %s' -n 10'''
+explain = "Last 10 commits as hash, author, age, subject"
+tags = ["log", "format"]
+
+[[command]]
+text = '''git log --oneline --graph --all --decorate'''
+explain = "Every branch as a compact graph"
+tags = ["log", "graph"]
+
+[[command]]
+text = '''git diff HEAD~3..HEAD -- '*.rs' | less'''
+explain = "Changes to Rust files in the last 3 commits"
+tags = ["diff", "range", "pipe"]
+
+[[command]]
+text = '''git stash push -m "wip: parser" -- src/'''
+explain = "Stash only the changes under src/"
+tags = ["stash"]
+
+[[command]]
+text = '''git stash show -p stash@{1}'''
+explain = "Show the second stash as a patch"
+tags = ["stash", "reflog"]
+
+[[command]]
+text = '''git rebase -i HEAD~5 && git push --force-with-lease'''
+explain = "Rewrite the last 5 commits, then push safely"
+tags = ["rebase", "push"]
+
+[[command]]
+text = '''git reset --hard HEAD@{2}'''
+explain = "Go back to where HEAD was two moves ago"
+tags = ["reset", "reflog"]
+
+[[command]]
+text = '''git branch --merged | grep -v '^\*' | xargs -r git branch -d'''
+explain = "Delete local branches that are already merged"
+tags = ["branch", "pipe", "xargs"]
+
+[[command]]
+text = '''git show main:src/main.rs > /tmp/main.rs.orig'''
+explain = "Save a file as it is on main"
+tags = ["show", "redirect"]
+
+[[command]]
+text = '''git rev-list --count $(git merge-base main HEAD)..HEAD'''
+explain = "Count commits since the branch left main"
+tags = ["rev-list", "subshell"]

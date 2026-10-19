@@ -43,6 +43,7 @@ src/
 └── ui/
     ├── mod.rs          # top-level layout, dispatches by Screen
     ├── menu.rs
+    ├── help.rs         # help screen, shown in place of Menu/Results
     ├── logo.rs         # block-letter logo glyphs
     ├── typing.rs
     └── results.rs

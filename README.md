@@ -14,9 +14,12 @@ underneath:
 
 ## Features
 
-- **41 real commands** in four topics: files (`find`, `xargs`, `tar`, permissions),
-  text (`grep`, `sed`, `awk`, `sort`), shell (redirection, `$()`, `&&`/`||`, loops)
-  and pentest (`nmap`, `ss`, `openssl`, `tcpdump`: recon and auditing your own hosts).
+- **81 real commands** in eight topics: files (`find`, `xargs`, `tar`, permissions),
+  text (`grep`, `sed`, `awk`, `sort`), shell (redirection, `$()`, `&&`/`||`, loops),
+  pentest (`nmap`, `ss`, `openssl`, `tcpdump`: recon and auditing your own hosts),
+  git (log formats, stashes, reflog), containers (`docker` run, exec, `{{.Format}}`),
+  services (`systemctl`, `journalctl`, cron lines) and network (`ssh` tunnels,
+  `rsync`, `curl` with JSON).
 - **Live feedback while you type:** speed and time in the panel border, a progress
   bar, and every mistake marked in place with the character you should have typed.
   The border flashes when you hit a wrong key.
@@ -24,8 +27,10 @@ underneath:
   one-line explanation of what the command does. Corrected mistakes still count
   against accuracy.
 - **Practises what you're bad at.** It tracks how often you miss each symbol and
-  picks commands containing your weak ones more often.
-- **Stats are saved between runs**, including your best wpm and weakest symbols.
+  picks commands containing your weak ones more often. Old mistakes fade, so a
+  symbol stops counting as weak once you start getting it right.
+- **Stats are saved between runs**, including your best wpm, your weakest
+  symbols and a trend of your last 20 rounds on the menu.
 - **Safe:** the commands are display text only. Nothing is ever executed.
 
 ## Install and run
@@ -50,12 +55,16 @@ cargo install --path .
 | ------- | ------------------ | ----------------------------------- |
 | Menu    | `↑` `↓` or `k` `j` | choose a topic                      |
 |         | `Enter`            | start                               |
+|         | `?`                | help                                |
 |         | `Esc` or `q`       | quit                                |
 | Typing  | any character      | type it                             |
 |         | `Backspace`        | delete the last character           |
 |         | `Esc`              | back to the menu (round is dropped) |
 | Results | `Enter`            | next command, same topic            |
+|         | `Tab`              | retry the same command              |
+|         | `?`                | help                                |
 |         | `Esc`              | back to the menu                    |
+| Help    | any key            | close                               |
 
 ## Where stats are saved
 

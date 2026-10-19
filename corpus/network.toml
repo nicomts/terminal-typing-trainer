@@ -1,0 +1,52 @@
+# Network: ssh tunnels, rsync, scp and curl with headers and JSON.
+# Display text only. These commands are never executed.
+
+[[command]]
+text = '''ssh -L 8080:localhost:80 -N -f admin@10.0.0.5'''
+explain = "Forward local port 8080 to port 80 on a host"
+tags = ["ssh", "tunnel"]
+
+[[command]]
+text = '''ssh -J bastion@jump.example.com admin@10.0.0.7 'uptime; df -h /''''
+explain = "Run two commands on a host behind a jump host"
+tags = ["ssh", "jump", "quoting"]
+
+[[command]]
+text = '''rsync -avz --delete --exclude='*.tmp' ./site/ web@host:/var/www/'''
+explain = "Mirror a folder to a server, skip temp files"
+tags = ["rsync", "glob"]
+
+[[command]]
+text = '''rsync -e "ssh -p 2222" -avP ~/data/ backup@nas:~/data/'''
+explain = "Copy over SSH on a custom port with progress"
+tags = ["rsync", "ssh"]
+
+[[command]]
+text = '''scp -P 2222 -r admin@host:/etc/nginx/ ./nginx-backup/'''
+explain = "Copy a remote config folder to this machine"
+tags = ["scp"]
+
+[[command]]
+text = '''curl -sS -X POST -H 'Content-Type: application/json' -d '{"name":"web","port":80}' http://localhost:3000/api'''
+explain = "POST a JSON body to a local API"
+tags = ["curl", "json", "quoting"]
+
+[[command]]
+text = '''curl -s -o /dev/null -w '%{http_code} %{time_total}\n' https://example.com'''
+explain = "Only the status code and response time"
+tags = ["curl", "format"]
+
+[[command]]
+text = '''curl -fsSL https://example.com/data.json | jq -r '.items[] | .name''''
+explain = "Download JSON and print each item's name"
+tags = ["curl", "jq", "pipe"]
+
+[[command]]
+text = '''for h in web{1..3}; do ping -c1 -W1 "$h" &>/dev/null && echo "$h up"; done'''
+explain = "Check which of web1 to web3 answer a ping"
+tags = ["ping", "loop", "brace"]
+
+[[command]]
+text = '''dig +short MX example.com @1.1.1.1'''
+explain = "Mail servers for a domain from one resolver"
+tags = ["dig", "dns"]

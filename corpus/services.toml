@@ -1,0 +1,52 @@
+# Services: systemd units, the journal, timers and cron.
+# Display text only. These commands are never executed.
+
+[[command]]
+text = '''systemctl status nginx.service --no-pager -l'''
+explain = "Full status of nginx without a pager"
+tags = ["systemctl", "status"]
+
+[[command]]
+text = '''systemctl list-units --type=service --state=failed'''
+explain = "List services that failed"
+tags = ["systemctl", "list"]
+
+[[command]]
+text = '''sudo systemctl daemon-reload && sudo systemctl restart app@{1..3}'''
+explain = "Reload unit files, restart three app instances"
+tags = ["systemctl", "brace", "and-or"]
+
+[[command]]
+text = '''journalctl -u sshd --since "1 hour ago" | grep -E 'Failed|Invalid''''
+explain = "Failed SSH logins in the last hour"
+tags = ["journalctl", "pipe", "regex"]
+
+[[command]]
+text = '''journalctl -p err..alert -b -1 --no-pager'''
+explain = "Errors from the previous boot"
+tags = ["journalctl", "priority"]
+
+[[command]]
+text = '''journalctl --vacuum-time=2weeks; journalctl --disk-usage'''
+explain = "Trim the journal to 2 weeks, show its size"
+tags = ["journalctl", "maintenance"]
+
+[[command]]
+text = '''*/5 * * * * /opt/check.sh >> /var/log/check.log 2>&1'''
+explain = "Cron line: run a check every 5 minutes"
+tags = ["cron", "redirect"]
+
+[[command]]
+text = '''0 3 * * 1-5 [ -x ~/backup.sh ] && ~/backup.sh'''
+explain = "Cron line: back up at 03:00 on weekdays"
+tags = ["cron", "test", "and-or"]
+
+[[command]]
+text = '''(crontab -l 2>/dev/null; echo '@reboot ~/start.sh') | crontab -'''
+explain = "Add a job to crontab without an editor"
+tags = ["cron", "subshell", "pipe"]
+
+[[command]]
+text = '''systemctl list-timers --all | awk 'NR>1 {print $NF}' | sort'''
+explain = "What each systemd timer activates"
+tags = ["systemctl", "timers", "awk"]

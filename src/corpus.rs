@@ -27,11 +27,24 @@ pub enum Topic {
     Text,
     Shell,
     Pentest,
+    Git,
+    Containers,
+    Services,
+    Network,
 }
 
 impl Topic {
     /// Every topic, in the order the menu lists them.
-    pub const ALL: [Topic; 4] = [Topic::Files, Topic::Text, Topic::Shell, Topic::Pentest];
+    pub const ALL: [Topic; 8] = [
+        Topic::Files,
+        Topic::Text,
+        Topic::Shell,
+        Topic::Pentest,
+        Topic::Git,
+        Topic::Containers,
+        Topic::Services,
+        Topic::Network,
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
@@ -39,13 +52,17 @@ impl Topic {
             Topic::Text => "text",
             Topic::Shell => "shell",
             Topic::Pentest => "pentest",
+            Topic::Git => "git",
+            Topic::Containers => "containers",
+            Topic::Services => "services",
+            Topic::Network => "network",
         }
     }
 }
 
 /// Every corpus file, embedded at compile time, with the topic of its
 /// commands. The file name is only used in error messages.
-const FILES: [(Topic, &str, &str); 4] = [
+const FILES: [(Topic, &str, &str); 8] = [
     (
         Topic::Files,
         "files.toml",
@@ -65,6 +82,22 @@ const FILES: [(Topic, &str, &str); 4] = [
         Topic::Pentest,
         "pentest.toml",
         include_str!("../corpus/pentest.toml"),
+    ),
+    (Topic::Git, "git.toml", include_str!("../corpus/git.toml")),
+    (
+        Topic::Containers,
+        "containers.toml",
+        include_str!("../corpus/containers.toml"),
+    ),
+    (
+        Topic::Services,
+        "services.toml",
+        include_str!("../corpus/services.toml"),
+    ),
+    (
+        Topic::Network,
+        "network.toml",
+        include_str!("../corpus/network.toml"),
     ),
 ];
 
@@ -218,7 +251,7 @@ mod tests {
     fn embedded_corpus_loads_and_passes_checks() {
         // If this fails, the error names the file and the command.
         let commands = load().unwrap();
-        assert!(commands.len() >= 30);
+        assert!(commands.len() >= 80);
     }
 
     #[test]
