@@ -1,6 +1,5 @@
 ---
 source: src/ui/mod.rs
-assertion_line: 327
 expression: "draw_settled(app, 80, 12).backend()"
 ---
 "                                                                                "
@@ -13,5 +12,5 @@ expression: "draw_settled(app, 80, 12).backend()"
 "        │ no missed symbols                                            │        "
 "        │ no weak symbols yet                                          │        "
 "        ╰──────────────────────────────────────────────────────────────╯        "
-"        enter next · esc menu                                                   "
+"        enter next · tab retry · esc menu                                       "
 "                                                                                "

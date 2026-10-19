@@ -69,7 +69,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, stats: &RoundStats, new_
     frame.render_widget(panel, panel_area);
 
     frame.render_widget(
-        Span::styled("enter next · esc menu", theme::hint()),
+        Span::styled("enter next · tab retry · esc menu", theme::hint()),
         hint_area,
     );
 }

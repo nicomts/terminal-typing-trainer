@@ -129,6 +129,7 @@ impl App {
             }
             Screen::Results { .. } => match key.code {
                 KeyCode::Enter => self.start_round(),
+                KeyCode::Tab => self.begin_round(),
                 KeyCode::Esc => self.open_menu(),
                 _ => {}
             },
@@ -216,6 +217,12 @@ impl App {
             Some(self.current),
             &mut self.rng,
         );
+        self.begin_round();
+    }
+
+    /// Starts typing the current command from scratch. Used for a new
+    /// command and for retrying the one just typed.
+    fn begin_round(&mut self) {
         self.session = Session::new(&self.commands[self.current].text);
         self.mistake_at = None;
         self.set_screen(Screen::Typing);
@@ -507,6 +514,18 @@ mod tests {
         assert!(app.session.typed().is_empty());
         let target: String = app.session.target().iter().collect();
         assert_eq!(target, app.command().text);
+    }
+
+    #[test]
+    fn tab_on_results_retries_the_same_command() {
+        let mut app = started_app(&["ls", "pwd"]);
+        let first = app.command().text.clone();
+        type_text(&mut app, &first);
+        app.update(press(KeyCode::Tab));
+
+        assert!(is_typing(&app));
+        assert_eq!(app.command().text, first);
+        assert!(app.session.typed().is_empty());
     }
 
     #[test]
