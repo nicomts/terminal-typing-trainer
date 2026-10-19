@@ -13,6 +13,8 @@ use crate::session::Session;
 
 /// The usual typing-test convention: 5 characters make one "word".
 const CHARS_PER_WORD: f64 = 5.0;
+/// A symbol's counts are halved when it has been seen this many times.
+const HALVE_AT: u32 = 40;
 
 #[derive(Debug, PartialEq)]
 pub struct RoundStats {
@@ -126,6 +128,19 @@ impl SymbolRecord {
         }
         f64::from(self.missed) / f64::from(self.seen)
     }
+
+    /// Halves both counts once `seen` reaches `HALVE_AT`.
+    ///
+    /// Without this, old mistakes would count forever: after 200 misses a
+    /// symbol would stay "weak" long after it was learned. Halving keeps
+    /// the miss rate about the same but makes every older attempt count
+    /// half as much, so roughly the last 20 to 40 attempts decide.
+    fn fade(&mut self) {
+        if self.seen >= HALVE_AT {
+            self.seen /= 2;
+            self.missed /= 2;
+        }
+    }
 }
 
 impl Profile {
@@ -147,6 +162,7 @@ impl Profile {
             if missed[i] {
                 record.missed += 1;
             }
+            record.fade();
         }
     }
 
@@ -291,6 +307,29 @@ mod tests {
         let mut profile = Profile::default();
         profile.record_round(&session, &round_stats(&session));
         assert_eq!(profile.symbols[&'|'], SymbolRecord { seen: 1, missed: 1 });
+    }
+
+    #[test]
+    fn counts_never_reach_halve_at() {
+        let mut profile = Profile::default();
+        for _ in 0..100 {
+            record(&mut profile, "a | b", "a x b");
+        }
+        let pipe = &profile.symbols[&'|'];
+        assert!(pipe.seen < HALVE_AT);
+        assert_eq!(pipe.missed, pipe.seen);
+    }
+
+    #[test]
+    fn old_mistakes_fade() {
+        let mut profile = Profile::default();
+        for _ in 0..30 {
+            record(&mut profile, "a | b", "a x b");
+        }
+        for _ in 0..40 {
+            record(&mut profile, "a | b", "a | b");
+        }
+        assert!(profile.weakness('|') < 0.5);
     }
 
     #[test]
