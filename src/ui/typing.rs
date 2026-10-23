@@ -118,12 +118,11 @@ fn target_spans(session: &Session, cursor: Style) -> Vec<Span<'static>> {
 mod tests {
     use super::*;
     use crate::app::test_app;
-    use crate::event::{Event, press_at};
+    use crate::event::{Event, Key, press_at};
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use ratatui::buffer::{Buffer, Cell};
-    use ratatui::crossterm::event::KeyCode;
-    use std::time::Instant;
+    use web_time::Instant;
 
     /// Checks every colour/modifier that `style` sets. Fields the style leaves
     /// unset (like the background of a typed char) come from the panel instead.
@@ -140,9 +139,9 @@ mod tests {
     /// An app on the Typing screen for "ls | wc", after typing "lx" at `t0`.
     fn app_after_lx(t0: Instant) -> App {
         let mut app = test_app(&["ls | wc"]);
-        app.update(press_at(KeyCode::Enter, t0));
-        app.update(press_at(KeyCode::Char('l'), t0));
-        app.update(press_at(KeyCode::Char('x'), t0));
+        app.update(press_at(Key::Enter, t0));
+        app.update(press_at(Key::Char('l'), t0));
+        app.update(press_at(Key::Char('x'), t0));
         app
     }
 

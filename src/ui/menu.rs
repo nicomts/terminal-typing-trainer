@@ -1,15 +1,16 @@
 //! The Menu screen: the logo, a topic to practise, and totals over all rounds.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
+use web_time::Instant;
 
 use super::{BORDER_ROWS, HINT_ROWS, inner_width, logo, sparkline, weakest_line};
 use crate::anim;
-use crate::app::{App, MENU_ROWS, topic_for_row};
+use crate::app::{App, CAN_QUIT, MENU_ROWS, topic_for_row};
 use crate::stats::Profile;
 use crate::theme;
 
@@ -70,10 +71,12 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, selected: usize) {
     let panel = Paragraph::new(lines).block(theme::panel_block(true).title(" choose a topic "));
     frame.render_widget(panel, panel_area);
 
-    frame.render_widget(
-        Span::styled("↑↓ choose · enter start · ? help · esc quit", theme::hint()),
-        hint_area,
-    );
+    let hint = if CAN_QUIT {
+        "↑↓ choose · enter start · ? help · esc quit"
+    } else {
+        "↑↓ choose · enter start · ? help"
+    };
+    frame.render_widget(Span::styled(hint, theme::hint()), hint_area);
 }
 
 /// The logo, one span per character, brighter where the shimmer is.

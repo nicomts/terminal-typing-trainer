@@ -6,20 +6,22 @@
 //! so every event carries its time and `update` stores it in `now`, next to
 //! the moments animations measure from (`screen_since`, `mistake_at`, ...).
 
-use std::time::Instant;
-
 use color_eyre::Result;
 use color_eyre::eyre::bail;
 use rand::rngs::StdRng;
-use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use web_time::Instant;
 
 use crate::corpus::{self, Command, Topic};
-use crate::event::Event;
+use crate::event::{Event, Key};
 use crate::session::Session;
 use crate::stats::{self, Profile, RoundStats};
 
 /// Rows in the menu: "all topics", then one per topic.
 pub const MENU_ROWS: usize = 1 + Topic::ALL.len();
+
+/// Whether Esc on the menu quits. A browser tab has nothing to quit to:
+/// the user just closes the tab. `cfg!` is `true` or `false` at compile time.
+pub const CAN_QUIT: bool = !cfg!(target_arch = "wasm32");
 
 /// Which screen is showing. A variant can carry data: the Menu holds which
 /// row is selected, and the Results screen owns the stats of the round it
@@ -116,7 +118,7 @@ impl App {
         }
     }
 
-    fn handle_key(&mut self, key: KeyEvent, at: Instant) {
+    fn handle_key(&mut self, key: Key, at: Instant) {
         // While help is open, any key just closes it.
         if self.show_help {
             self.show_help = false;
@@ -128,38 +130,38 @@ impl App {
         match self.screen {
             Screen::Menu { selected } => self.handle_menu_key(key, selected),
             Screen::Typing => {
-                if key.code == KeyCode::Esc {
+                if key == Key::Esc {
                     // The unfinished round is dropped, not recorded.
                     self.open_menu();
                 } else {
                     self.handle_typing_key(key, at);
                 }
             }
-            Screen::Results { .. } => match key.code {
-                KeyCode::Enter => self.start_round(),
-                KeyCode::Tab => self.begin_round(),
-                KeyCode::Char('?') => self.show_help = true,
-                KeyCode::Esc => self.open_menu(),
+            Screen::Results { .. } => match key {
+                Key::Enter => self.start_round(),
+                Key::Tab => self.begin_round(),
+                Key::Char('?') => self.show_help = true,
+                Key::Esc => self.open_menu(),
                 _ => {}
             },
         }
     }
 
-    fn handle_menu_key(&mut self, key: KeyEvent, selected: usize) {
-        match key.code {
-            KeyCode::Esc | KeyCode::Char('q') => self.should_quit = true,
-            KeyCode::Char('?') => self.show_help = true,
-            KeyCode::Up | KeyCode::Char('k') => {
+    fn handle_menu_key(&mut self, key: Key, selected: usize) {
+        match key {
+            Key::Esc | Key::Char('q') if CAN_QUIT => self.should_quit = true,
+            Key::Char('?') => self.show_help = true,
+            Key::Up | Key::Char('k') => {
                 self.screen = Screen::Menu {
                     selected: selected.saturating_sub(1),
                 };
             }
-            KeyCode::Down | KeyCode::Char('j') => {
+            Key::Down | Key::Char('j') => {
                 self.screen = Screen::Menu {
                     selected: (selected + 1).min(MENU_ROWS - 1),
                 };
             }
-            KeyCode::Enter => {
+            Key::Enter => {
                 self.topic = topic_for_row(selected);
                 self.start_round();
             }
@@ -182,15 +184,10 @@ impl App {
         self.screen_since = self.now;
     }
 
-    fn handle_typing_key(&mut self, key: KeyEvent, at: Instant) {
-        // Ctrl+C or Alt+x are shortcuts, not text. Shift is fine:
-        // 'A' and '|' arrive as plain characters with the SHIFT flag.
-        let is_shortcut = key
-            .modifiers
-            .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT);
-
-        match key.code {
-            KeyCode::Char(c) if !is_shortcut => {
+    fn handle_typing_key(&mut self, key: Key, at: Instant) {
+        // Shortcuts like Ctrl+C never arrive as `Key::Char`; see `event.rs`.
+        match key {
+            Key::Char(c) => {
                 let mistakes_before = self.session.mistakes().len();
                 self.session.type_char(c, at);
                 if self.session.mistakes().len() > mistakes_before {
@@ -200,7 +197,7 @@ impl App {
                     self.finish_round();
                 }
             }
-            KeyCode::Backspace => self.session.backspace(),
+            Key::Backspace => self.session.backspace(),
             _ => {}
         }
     }
@@ -292,27 +289,20 @@ mod tests {
     use super::*;
     use crate::event::press_at;
 
-    fn press(code: KeyCode) -> Event {
-        press_at(code, Instant::now())
-    }
-
-    fn press_with(code: KeyCode, modifiers: KeyModifiers) -> Event {
-        Event::Key {
-            key: KeyEvent::new(code, modifiers),
-            at: Instant::now(),
-        }
+    fn press(key: Key) -> Event {
+        press_at(key, Instant::now())
     }
 
     fn type_text(app: &mut App, text: &str) {
         for c in text.chars() {
-            app.update(press(KeyCode::Char(c)));
+            app.update(press(Key::Char(c)));
         }
     }
 
     /// A test app past the menu, on the Typing screen, in "all topics".
     fn started_app(texts: &[&str]) -> App {
         let mut app = test_app(texts);
-        app.update(press(KeyCode::Enter));
+        app.update(press(Key::Enter));
         app
     }
 
@@ -348,30 +338,30 @@ mod tests {
     #[test]
     fn esc_on_the_menu_quits() {
         let mut app = test_app(&["ls"]);
-        app.update(press(KeyCode::Esc));
+        app.update(press(Key::Esc));
         assert!(app.should_quit);
     }
 
     #[test]
     fn q_on_the_menu_quits() {
         let mut app = test_app(&["ls"]);
-        app.update(press(KeyCode::Char('q')));
+        app.update(press(Key::Char('q')));
         assert!(app.should_quit);
     }
 
     #[test]
     fn arrows_move_the_selection_within_bounds() {
         let mut app = test_app(&["ls"]);
-        app.update(press(KeyCode::Up));
+        app.update(press(Key::Up));
         assert_eq!(menu_row(&app), Some(0));
-        app.update(press(KeyCode::Down));
-        app.update(press(KeyCode::Char('j')));
+        app.update(press(Key::Down));
+        app.update(press(Key::Char('j')));
         assert_eq!(menu_row(&app), Some(2));
         for _ in 0..10 {
-            app.update(press(KeyCode::Down));
+            app.update(press(Key::Down));
         }
         assert_eq!(menu_row(&app), Some(MENU_ROWS - 1));
-        app.update(press(KeyCode::Char('k')));
+        app.update(press(Key::Char('k')));
         assert_eq!(menu_row(&app), Some(MENU_ROWS - 2));
     }
 
@@ -389,15 +379,15 @@ mod tests {
         app.commands[3].topic = Topic::Shell;
         // Row 3 is the third topic, shell.
         for _ in 0..3 {
-            app.update(press(KeyCode::Down));
+            app.update(press(Key::Down));
         }
-        app.update(press(KeyCode::Enter));
+        app.update(press(Key::Enter));
 
         for _ in 0..20 {
             assert_eq!(app.command().topic, Topic::Shell);
             let text = app.command().text.clone();
             type_text(&mut app, &text);
-            app.update(press(KeyCode::Enter));
+            app.update(press(Key::Enter));
         }
     }
 
@@ -405,7 +395,7 @@ mod tests {
     fn esc_while_typing_returns_to_the_menu_without_recording() {
         let mut app = started_app(&["ls"]);
         type_text(&mut app, "l");
-        app.update(press(KeyCode::Esc));
+        app.update(press(Key::Esc));
 
         assert_eq!(menu_row(&app), Some(0));
         assert!(!app.should_quit);
@@ -416,10 +406,10 @@ mod tests {
     #[test]
     fn esc_on_results_returns_to_the_menu_at_the_chosen_topic() {
         let mut app = test_app(&["ls"]);
-        app.update(press(KeyCode::Down));
-        app.update(press(KeyCode::Enter));
+        app.update(press(Key::Down));
+        app.update(press(Key::Enter));
         type_text(&mut app, "ls");
-        app.update(press(KeyCode::Esc));
+        app.update(press(Key::Esc));
         assert_eq!(menu_row(&app), Some(1));
         assert!(!app.should_quit);
     }
@@ -434,37 +424,23 @@ mod tests {
     #[test]
     fn chars_are_typed() {
         let mut app = started_app(&["ls"]);
-        app.update(press(KeyCode::Char('l')));
+        app.update(press(Key::Char('l')));
         assert_eq!(app.session.typed(), &['l']);
     }
 
     #[test]
     fn q_while_typing_is_typed() {
         let mut app = started_app(&["ls"]);
-        app.update(press(KeyCode::Char('q')));
+        app.update(press(Key::Char('q')));
         assert!(!app.should_quit);
         assert_eq!(app.session.typed(), &['q']);
     }
 
     #[test]
-    fn ctrl_c_does_not_type_c() {
-        let mut app = started_app(&["ls"]);
-        app.update(press_with(KeyCode::Char('c'), KeyModifiers::CONTROL));
-        assert!(app.session.typed().is_empty());
-    }
-
-    #[test]
-    fn shifted_symbols_are_typed() {
-        let mut app = started_app(&["ls"]);
-        app.update(press_with(KeyCode::Char('|'), KeyModifiers::SHIFT));
-        assert_eq!(app.session.typed(), &['|']);
-    }
-
-    #[test]
     fn backspace_removes_a_char() {
         let mut app = started_app(&["ls"]);
-        app.update(press(KeyCode::Char('l')));
-        app.update(press(KeyCode::Backspace));
+        app.update(press(Key::Char('l')));
+        app.update(press(Key::Backspace));
         assert!(app.session.typed().is_empty());
     }
 
@@ -492,8 +468,8 @@ mod tests {
     fn enter_does_nothing_while_typing() {
         let mut app = started_app(&["ls", "pwd"]);
         let before = app.command().text.clone();
-        app.update(press(KeyCode::Char('x')));
-        app.update(press(KeyCode::Enter));
+        app.update(press(Key::Char('x')));
+        app.update(press(Key::Enter));
         assert_eq!(app.command().text, before);
         assert_eq!(app.session.typed(), &['x']);
     }
@@ -504,7 +480,7 @@ mod tests {
         let first = app.command().text.clone();
         type_text(&mut app, &first);
         type_text(&mut app, "abc");
-        app.update(press(KeyCode::Backspace));
+        app.update(press(Key::Backspace));
 
         assert!(is_results(&app));
         assert_eq!(app.command().text, first);
@@ -517,7 +493,7 @@ mod tests {
         // Cloned so the borrow of `app` ends here; typing needs `&mut app`.
         let first = app.command().text.clone();
         type_text(&mut app, &first);
-        app.update(press(KeyCode::Enter));
+        app.update(press(Key::Enter));
 
         assert!(is_typing(&app));
         assert_ne!(app.command().text, first);
@@ -531,7 +507,7 @@ mod tests {
         let mut app = started_app(&["ls", "pwd"]);
         let first = app.command().text.clone();
         type_text(&mut app, &first);
-        app.update(press(KeyCode::Tab));
+        app.update(press(Key::Tab));
 
         assert!(is_typing(&app));
         assert_eq!(app.command().text, first);
@@ -541,11 +517,11 @@ mod tests {
     #[test]
     fn question_mark_opens_help_and_any_key_closes_it() {
         let mut app = test_app(&["ls"]);
-        app.update(press(KeyCode::Char('?')));
+        app.update(press(Key::Char('?')));
         assert!(app.show_help);
 
         // The closing key does nothing else: the selection stays put.
-        app.update(press(KeyCode::Down));
+        app.update(press(Key::Down));
         assert!(!app.show_help);
         assert_eq!(menu_row(&app), Some(0));
     }
@@ -553,8 +529,8 @@ mod tests {
     #[test]
     fn esc_closes_help_without_quitting() {
         let mut app = test_app(&["ls"]);
-        app.update(press(KeyCode::Char('?')));
-        app.update(press(KeyCode::Esc));
+        app.update(press(Key::Char('?')));
+        app.update(press(Key::Esc));
         assert!(!app.show_help);
         assert!(!app.should_quit);
     }
@@ -563,7 +539,7 @@ mod tests {
     fn question_mark_opens_help_on_results() {
         let mut app = started_app(&["ls"]);
         type_text(&mut app, "ls");
-        app.update(press(KeyCode::Char('?')));
+        app.update(press(Key::Char('?')));
         assert!(app.show_help);
         assert!(is_results(&app));
     }
@@ -571,7 +547,7 @@ mod tests {
     #[test]
     fn question_mark_while_typing_is_typed() {
         let mut app = started_app(&["ls"]);
-        app.update(press(KeyCode::Char('?')));
+        app.update(press(Key::Char('?')));
         assert!(!app.show_help);
         assert_eq!(app.session.typed(), &['?']);
     }
@@ -588,7 +564,7 @@ mod tests {
     fn a_new_screen_restarts_its_animation() {
         let mut app = test_app(&["ls"]);
         let at = app.now + std::time::Duration::from_secs(2);
-        app.update(press_at(KeyCode::Enter, at));
+        app.update(press_at(Key::Enter, at));
         assert!(is_typing(&app));
         assert_eq!(app.screen_since, at);
     }
@@ -598,17 +574,17 @@ mod tests {
         let mut app = test_app(&["ls"]);
         let since = app.screen_since;
         let at = app.now + std::time::Duration::from_secs(2);
-        app.update(press_at(KeyCode::Down, at));
+        app.update(press_at(Key::Down, at));
         assert_eq!(app.screen_since, since);
     }
 
     #[test]
     fn a_wrong_key_sets_mistake_at_and_a_right_one_does_not() {
         let mut app = started_app(&["ls"]);
-        app.update(press(KeyCode::Char('l')));
+        app.update(press(Key::Char('l')));
         assert_eq!(app.mistake_at, None);
         let at = Instant::now();
-        app.update(press_at(KeyCode::Char('x'), at));
+        app.update(press_at(Key::Char('x'), at));
         assert_eq!(app.mistake_at, Some(at));
     }
 
@@ -616,7 +592,7 @@ mod tests {
     fn type_timed(app: &mut App, text: &str, start: Instant, step: std::time::Duration) {
         let mut at = start;
         for c in text.chars() {
-            app.update(press_at(KeyCode::Char(c), at));
+            app.update(press_at(Key::Char(c), at));
             at += step;
         }
     }
@@ -635,7 +611,7 @@ mod tests {
         type_timed(&mut app, &text, start, Duration::from_millis(500));
         assert!(!new_best(&app));
 
-        app.update(press(KeyCode::Enter));
+        app.update(press(Key::Enter));
         let text = app.command().text.clone();
         type_timed(&mut app, &text, start, Duration::from_millis(100));
         assert!(new_best(&app));
@@ -649,7 +625,7 @@ mod tests {
 
         let text = app.command().text.clone();
         type_timed(&mut app, &text, start, Duration::from_millis(100));
-        app.update(press(KeyCode::Enter));
+        app.update(press(Key::Enter));
         let text = app.command().text.clone();
         type_timed(&mut app, &text, start, Duration::from_millis(500));
         assert!(!new_best(&app));

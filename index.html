@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Terminal Typing Trainer</title>
+    <!-- Trunk compiles the crate to WebAssembly and loads it here. -->
+    <link data-trunk rel="rust" data-bin="terminal-typing-trainer" />
+    <!-- Copies the bundled font (and its license) into the built site. -->
+    <link data-trunk rel="copy-dir" href="web/fonts" />
+    <style>
+      /* JetBrains Mono Bold, bundled in web/fonts (SIL Open Font License).
+         The Bold file is registered for every weight, so all text is bold,
+         including text the theme marks bold. The name differs from the
+         installable "JetBrains Mono", so a regular copy installed on the
+         computer is never picked instead. web.rs waits for it to load. */
+      @font-face {
+        font-family: "JetBrains Mono Bold";
+        src: url("fonts/JetBrainsMono-Bold.woff2") format("woff2");
+        font-weight: 100 900;
+      }
+      /* Ratzilla puts a WebGL <canvas> in <body> sized to the window, so
+         the body must fill it. The font is set in web.rs, not here. The
+         background matches theme.rs, so nothing flashes while loading. */
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0c0c10;
+      }
+    </style>
+  </head>
+  <body></body>
+</html>

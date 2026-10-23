@@ -13,15 +13,22 @@ and understand, not for cleverness.
 ## Stack
 
 - Rust (stable), edition 2024 (the `cargo new` default)
-- `ratatui` for UI, using its re-exported `ratatui::crossterm` (do not add crossterm separately)
+- `ratatui` for UI, using its re-exported `ratatui::crossterm` (do not add crossterm separately).
+  The crossterm feature is native-only; only `event.rs` and `native.rs` may use crossterm.
 - `color-eyre` for errors
 - `serde` + `toml` (command corpus), `serde_json` (saved stats)
-- `directories` for config/data paths
+- `directories` for config/data paths (native only)
+- `web-time` for `Instant`: use `web_time::Instant`, never `std::time::Instant`
+  (it panics in the browser). `std::time::Duration` is fine.
+- Browser build (`wasm32` only): `ratzilla` (ratatui WebGL2 backend), `web-sys`,
+  `getrandom` with `wasm_js`. Built and served with `trunk`.
 - `rand` for weighted command selection
 - Dev: `insta` for snapshot tests of rendered UI via `ratatui::backend::TestBackend`
 
 No async runtime. The app is local and single-threaded: one loop that polls for
 key events with a short timeout and redraws on each tick. Do not add tokio.
+In the browser the loop is replaced by two callbacks (keydown, animation frame)
+sharing the `App` through `Rc<RefCell<App>>` in `web.rs`.
 
 Ask before adding any dependency not listed here. Add dependencies with `cargo add`,
 never by typing version numbers into `Cargo.toml` (they go stale).
@@ -30,15 +37,18 @@ never by typing version numbers into `Cargo.toml` (they go stale).
 
 ```
 corpus/                 # TOML command lists, one file per topic, embedded with include_str!
+web/fonts/              # JetBrains Mono Bold + its license, for the browser version
 src/
-├── main.rs             # terminal init/restore, panic-safe, runs the loop
+├── main.rs             # picks native::main or web::main by target
+├── native.rs           # terminal init/restore, panic-safe, runs the loop
+├── web.rs              # browser entry: Ratzilla WebGL2, keydown listener
 ├── app.rs              # App state, Screen enum (Menu, Typing, Results), update(event)
-├── event.rs            # poll keys + ticks into one Event enum, each with its time
+├── event.rs            # app-owned Key + Event enums; crossterm keys → Key
 ├── anim.rs             # pure animation math: progress, easing, phase, pulse
 ├── session.rs          # one typing round: target text, typed chars, start/end time
 ├── stats.rs            # WPM, accuracy, per-symbol error counts
 ├── corpus.rs           # parse embedded TOML, weighted pick by weak symbols
-├── storage.rs          # load/save stats JSON in the platform data dir
+├── storage.rs          # load/save stats JSON: data-dir file, or localStorage on web
 ├── theme.rs            # THE ONLY place colors are defined
 └── ui/
     ├── mod.rs          # top-level layout, dispatches by Screen
@@ -76,7 +86,8 @@ backslashes are stored exactly as typed. `explain` is shown after each round.
 
 - **Never execute commands from `corpus/`.** They are display text only.
 - Before finishing any task, run and pass:
-  `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, `cargo test`.
+  `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, `cargo test`,
+  `cargo clippy --target wasm32-unknown-unknown -- -D warnings`.
 - No `unwrap()` / `expect()` outside tests; propagate with `?`.
 - All styling comes from the functions in `theme.rs` (e.g. `theme::untyped()`,
   `theme::incorrect(c)`, `theme::cursor()`). Never construct a `Color` outside

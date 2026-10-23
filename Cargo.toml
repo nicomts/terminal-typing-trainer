@@ -5,12 +5,21 @@ edition = "2024"
 
 [dependencies]
 color-eyre = "0.6.5"
-directories = "6.0.0"
 rand = "0.10.3"
-ratatui = "0.30.2"
+ratatui = { version = "0.30.2", default-features = false, features = ["std", "all-widgets", "layout-cache", "macros", "underline-color"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 toml = "1.1.6"
+web-time = "1.1.0"
 
 [dev-dependencies]
 insta = "1.49.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+directories = "6.0.0"
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4.3", features = ["wasm_js"] }
+ratzilla = "0.3.1"
+web-sys = { version = "0.3.106", features = ["Window", "Storage", "Document", "Element", "HtmlElement", "Node", "EventTarget", "Event", "KeyboardEvent", "console", "FontFaceSet"] }

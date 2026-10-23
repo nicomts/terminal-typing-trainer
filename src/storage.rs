@@ -1,18 +1,28 @@
-//! Loading and saving the `Profile` as JSON. The only file I/O in the app.
+//! Loading and saving the `Profile` as JSON. The only I/O in the app.
+//!
+//! The terminal app keeps it in a file; the browser version (`web.rs`)
+//! keeps the same JSON in the page's `localStorage`. `#[cfg(...)]` picks
+//! which functions are compiled for each target.
 
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
+#[cfg(not(target_arch = "wasm32"))]
 use std::io;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::{Path, PathBuf};
 
 use color_eyre::Result;
 use color_eyre::eyre::{WrapErr, bail};
+#[cfg(not(target_arch = "wasm32"))]
 use directories::ProjectDirs;
 
 use crate::stats::Profile;
 
 const APP_NAME: &str = "terminal-typing-trainer";
+#[cfg(not(target_arch = "wasm32"))]
 const FILE_NAME: &str = "stats.json";
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Where the stats live, in the platform's data folder, e.g.
 /// `~/.local/share/terminal-typing-trainer/stats.json` on Linux or
 /// `~/Library/Application Support/terminal-typing-trainer/stats.json` on macOS.
@@ -23,6 +33,7 @@ pub fn data_file() -> Result<PathBuf> {
     Ok(dirs.data_dir().join(FILE_NAME))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Reads the profile at `path`. A missing file is not an error: it just
 /// means no rounds have been played yet.
 pub fn load(path: &Path) -> Result<Profile> {
@@ -41,6 +52,7 @@ pub fn load(path: &Path) -> Result<Profile> {
     })
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Writes the profile to `path`, creating its folder if needed.
 ///
 /// Writes to a temporary file first, then renames it over the real one.
@@ -58,7 +70,47 @@ pub fn save(path: &Path, profile: &Profile) -> Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
+/// The `localStorage` of the browser tab. Errors from the browser arrive as
+/// a `JsValue`, which isn't a Rust error type, so they are turned into text.
+#[cfg(target_arch = "wasm32")]
+fn local_storage() -> Result<web_sys::Storage> {
+    let Some(window) = web_sys::window() else {
+        bail!("no browser window");
+    };
+    match window.local_storage() {
+        Ok(Some(storage)) => Ok(storage),
+        // `None` or an error: storage is turned off, e.g. in some private windows.
+        _ => bail!("this browser does not allow saving stats (localStorage is off)"),
+    }
+}
+
+/// The `localStorage` key the stats are saved under.
+#[cfg(target_arch = "wasm32")]
+const STORAGE_KEY: &str = APP_NAME;
+
+/// Reads the profile from the browser. No saved stats is not an error: it
+/// just means no rounds have been played in this browser yet.
+#[cfg(target_arch = "wasm32")]
+pub fn load_browser() -> Result<Profile> {
+    let contents = match local_storage()?.get_item(STORAGE_KEY) {
+        Ok(Some(contents)) => contents,
+        Ok(None) => return Ok(Profile::default()),
+        Err(error) => bail!("could not read saved stats: {error:?}"),
+    };
+    serde_json::from_str(&contents).wrap_err("the saved stats are not valid")
+}
+
+/// Writes the profile to the browser.
+#[cfg(target_arch = "wasm32")]
+pub fn save_browser(profile: &Profile) -> Result<()> {
+    let json = serde_json::to_string(profile)?;
+    if let Err(error) = local_storage()?.set_item(STORAGE_KEY, &json) {
+        bail!("could not save stats: {error:?}");
+    }
+    Ok(())
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
     use crate::stats::SymbolRecord;

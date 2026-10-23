@@ -7,6 +7,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
 use super::{BORDER_ROWS, centered_area};
+use crate::app::CAN_QUIT;
 use crate::theme;
 
 /// How the trainer works, one short sentence per row. Each fits in the
@@ -18,9 +19,16 @@ const ABOUT: [&str; 4] = [
     "Old mistakes fade as you start getting a symbol right.",
 ];
 
+/// The menu's keys. Only the terminal app can quit (see `app::CAN_QUIT`).
+const MENU_KEYS: &str = if CAN_QUIT {
+    "↑↓ or j k choose · enter start · esc quit"
+} else {
+    "↑↓ or j k choose · enter start"
+};
+
 /// Each screen with its keys.
 const KEYS: [(&str, &str); 3] = [
-    ("menu    ", "↑↓ or j k choose · enter start · esc quit"),
+    ("menu    ", MENU_KEYS),
     ("typing  ", "backspace delete · esc back to the menu"),
     ("results ", "enter next · tab retry · esc menu"),
 ];

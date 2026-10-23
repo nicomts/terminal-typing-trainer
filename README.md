@@ -58,6 +58,23 @@ To install it as a `terminal-typing-trainer` command:
 cargo install --path .
 ```
 
+## Play in the browser
+
+The same code also builds to WebAssembly and runs in a web page, drawn by
+[Ratzilla](https://github.com/ratatui/ratzilla). Pushes to `master` publish it
+to GitHub Pages (`.github/workflows/pages.yml`). To run it locally:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install trunk          # or: brew install trunk
+trunk serve                  # then open http://127.0.0.1:8080
+```
+
+The browser version has no quit key: close the tab instead.
+
+It draws all text in JetBrains Mono Bold, bundled in `web/fonts/` under the
+SIL Open Font License (`web/fonts/OFL.txt`).
+
 ## Keys
 
 | Screen  | Key                | Action                              |
@@ -84,6 +101,9 @@ cargo install --path .
 | Windows | `%APPDATA%\terminal-typing-trainer\data\stats.json` |
 
 Delete the file to reset your stats.
+
+The browser version saves them in the page's `localStorage` instead; clear the
+site's data to reset them.
 
 ## Adding commands
 

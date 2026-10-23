@@ -211,11 +211,11 @@ fn weakest_line(profile: &Profile) -> Line<'static> {
 mod tests {
     use super::*;
     use crate::app::test_app;
-    use crate::event::{Event, press_at};
+    use crate::event::{Event, Key, press_at};
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
-    use ratatui::crossterm::event::KeyCode;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
+    use web_time::Instant;
 
     const FIND: &str = r#"find /var/log -name '*.log' -mtime +7 -exec gzip {} \;"#;
 
@@ -230,7 +230,7 @@ mod tests {
     fn type_text(app: &mut App, text: &str) {
         let mut at = Instant::now();
         for c in text.chars() {
-            app.update(press_at(KeyCode::Char(c), at));
+            app.update(press_at(Key::Char(c), at));
             at += Duration::from_millis(200);
         }
     }
@@ -276,7 +276,7 @@ mod tests {
     /// A test app past the menu, on the Typing screen.
     fn started_app(texts: &[&str]) -> App {
         let mut app = test_app(texts);
-        app.update(press_at(KeyCode::Enter, Instant::now()));
+        app.update(press_at(Key::Enter, Instant::now()));
         app
     }
 
@@ -296,10 +296,10 @@ mod tests {
     fn menu_with_second_item_selected() {
         let mut app = test_app(&["ls -l | wc -l"]);
         // Play one round with a mistake on '|', so the totals show up.
-        app.update(press_at(KeyCode::Enter, Instant::now()));
+        app.update(press_at(Key::Enter, Instant::now()));
         type_text(&mut app, "ls -l x wc -l");
-        app.update(press_at(KeyCode::Esc, Instant::now()));
-        app.update(press_at(KeyCode::Down, Instant::now()));
+        app.update(press_at(Key::Esc, Instant::now()));
+        app.update(press_at(Key::Down, Instant::now()));
         insta::assert_snapshot!(draw_settled(app, 80, MENU_HEIGHT).backend());
     }
 
@@ -322,7 +322,7 @@ mod tests {
     #[test]
     fn help_screen() {
         let mut app = test_app(&[FIND]);
-        app.update(press_at(KeyCode::Char('?'), Instant::now()));
+        app.update(press_at(Key::Char('?'), Instant::now()));
         insta::assert_snapshot!(draw_settled(app, 80, MENU_HEIGHT).backend());
     }
 

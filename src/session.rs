@@ -3,7 +3,9 @@
 //!
 //! Pure data, no terminal code, so everything here is easy to unit test.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use web_time::Instant;
 
 /// Both texts are stored as `Vec<char>` rather than `String` so that
 /// "the i-th character" is a plain index. A `String` is indexed by byte,

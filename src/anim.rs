@@ -4,7 +4,9 @@
 //! clock, so `ui::render` stays a pure function of `App` and tests can check
 //! any moment of an animation by passing a fixed time.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use web_time::Instant;
 
 /// How far an animation that started at `since` and lasts `duration` has got
 /// at `now`: 0.0 at the start, 1.0 once it's over (and stays 1.0 after).

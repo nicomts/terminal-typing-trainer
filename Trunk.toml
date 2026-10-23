@@ -1,0 +1,7 @@
+# `trunk serve` runs the browser version at http://127.0.0.1:8080.
+# `trunk build --release --public-url /terminal-typing-trainer/` builds it
+# for GitHub Pages, which serves it from that sub-path.
+
+[build]
+target = "index.html"
+dist = "dist"
