@@ -5,6 +5,8 @@ drills real Linux sysadmin commands instead of English words. These are the
 commands full of `| & ; > >> 2>&1 $() {} [] ^ ~ \ ' "` that slow you down at a
 shell prompt.
 
+**Try it in your browser:** <https://nicomts.github.io/terminal-typing-trainer/>
+
 ![The menu: the TYPE TRAINER logo, eight topics, your rounds and best wpm, a trend of your last 20 rounds and your weakest symbols](docs/menu.png)
 
 While you type, the panel shows your live speed and time, with a progress bar
@@ -60,7 +62,8 @@ cargo install --path .
 
 ## Play in the browser
 
-The same code also builds to WebAssembly and runs in a web page, drawn by
+Play it at <https://nicomts.github.io/terminal-typing-trainer/>, nothing to
+install. The same code builds to WebAssembly and runs in the page, drawn by
 [Ratzilla](https://github.com/ratatui/ratzilla). Pushes to `master` publish it
 to GitHub Pages (`.github/workflows/pages.yml`). To run it locally:
 
