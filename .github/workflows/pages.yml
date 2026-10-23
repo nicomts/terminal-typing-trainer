@@ -21,17 +21,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - uses: jetli/trunk-action@v0.5.1
-        with:
-          version: latest
+      # Trunk's own release binary, checked against its published SHA-256.
+      # (jetli/trunk-action still runs on the deprecated Node 20.)
+      - name: Install trunk
+        env:
+          TRUNK_VERSION: v0.22.0
+        run: |
+          file=trunk-x86_64-unknown-linux-gnu.tar.gz
+          url="https://github.com/trunk-rs/trunk/releases/download/$TRUNK_VERSION/$file"
+          curl -fsSL -o "$file" "$url"
+          curl -fsSL -o "$file.sha256" "$url.sha256"
+          echo "$(cut -d' ' -f1 "$file.sha256")  $file" | sha256sum --check
+          mkdir -p "$HOME/.local/bin"
+          tar -xzf "$file" -C "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       # Pages serves the site from /<repo name>/, not from /.
       - run: trunk build --release --public-url "/${{ github.event.repository.name }}/"
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -43,4 +54,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
