@@ -8,6 +8,9 @@
 Output "/tmp/terminal-typing-trainer-screens.gif"
 
 Set Shell zsh
+# JetBrains Mono with only its Bold face installed, so all text is bold,
+# matching the web version. See "Development" in the README.
+Set FontFamily "JetBrains Mono"
 Set FontSize 20
 Set Width 1280
 Set Height 640

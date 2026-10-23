@@ -144,6 +144,12 @@ vhs docs/typing.tape    # docs/typing.gif
 They use the demo stats in `docs/demo/stats.json` and set `TYPE_TRAINER_SEED`, which
 makes the app pick the same commands every time. Your own stats aren't touched.
 
+The tapes draw in JetBrains Mono Bold, like the web version. vhs can't pick a font
+weight, so while recording, install only
+[`JetBrainsMono-Bold.ttf`](https://github.com/JetBrains/JetBrainsMono/raw/master/fonts/ttf/JetBrainsMono-Bold.ttf)
+(no other JetBrains Mono faces): with just the Bold face available, all text is
+bold. Remove it again afterwards if you don't want it installed.
+
 The screens are covered by [insta](https://insta.rs) snapshot tests. After a layout
 change, review the new snapshots with `cargo insta review` (install it with
 `cargo install cargo-insta`). [`CLAUDE.md`](CLAUDE.md) describes the architecture
